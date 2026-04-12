@@ -1,0 +1,16 @@
+<!-- Copyright (c) Helsincy. All rights reserved. -->
+<Window
+    x:Class="Launcher.App.MainWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <Grid Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
+        <TextBlock
+            Text="HelsincyEpicLauncher"
+            FontSize="24"
+            FontWeight="SemiBold"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Center"
+            Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
+    </Grid>
+</Window>

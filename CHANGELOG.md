@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+### Task 0.7 - WinUI 3 空窗口 + 单实例 (2026-04-13)
+- 创建 App.xaml + App.xaml.cs（WinUI 3 Application 子类，管理单实例 + DI + Serilog + 数据库迁移）
+- 创建 MainWindow.xaml + MainWindow.xaml.cs（空窗口，1280x800 默认尺寸）
+- Mutex 单实例保证（HelsincyEpicLauncher_SingleInstance）
+- 命名管道通信（第二实例发送 ACTIVATE → 已有实例激活窗口）
+- PInvoke: ShowWindow + SetForegroundWindow
+- Program.cs 简化为 WinUI 3 启动入口（DISABLE_XAML_GENERATED_MAIN）
+- Launcher.App.csproj: AllowUnsafeBlocks + DISABLE_XAML_GENERATED_MAIN
+- Phase 0 全部完成，dotnet build 9 个项目零错误，dotnet test 15/15 通过
+
 ### Task 0.6 - INavigationService 空实现 (2026-04-12)
 - 创建 INavigationService 接口（Presentation/Shell/Navigation — NavigateAsync / GoBackAsync / CanGoBack / CurrentRoute）
 - 创建 StubNavigationService 桩实现（导航历史栈 + Serilog 日志记录）
