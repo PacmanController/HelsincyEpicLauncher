@@ -34,6 +34,7 @@ public partial class App : Microsoft.UI.Xaml.Application
 
     private static Mutex? _mutex;
     private MainWindow? _mainWindow;
+    private TrayIconManager? _trayIcon;
 
     /// <summary>
     /// 全局服务提供器
@@ -61,9 +62,57 @@ public partial class App : Microsoft.UI.Xaml.Application
 
         // 创建主窗口
         _mainWindow = new MainWindow();
+
+        // 初始化系统托盘
+        InitializeTrayIcon();
+
+        // 拦截窗口关闭 → 最小化到托盘
+        ConfigureCloseToTray();
+
         _mainWindow.Activate();
 
-        Log.Information("主窗口已显示");
+        Log.Information("主窗口已显示 | 系统托盘图标已就绪");
+    }
+
+    /// <summary>
+    /// 初始化系统托盘图标
+    /// </summary>
+    private void InitializeTrayIcon()
+    {
+        _trayIcon = new TrayIconManager();
+        _trayIcon.Initialize();
+
+        _trayIcon.ShowRequested += () =>
+        {
+            ActivateMainWindow();
+        };
+
+        _trayIcon.ExitRequested += () =>
+        {
+            Log.Information("用户从托盘请求退出应用");
+            _trayIcon.Dispose();
+            _mainWindow?.Close();
+            Environment.Exit(0);
+        };
+    }
+
+    /// <summary>
+    /// 配置关闭按钮行为：最小化到托盘而非关闭应用
+    /// </summary>
+    private void ConfigureCloseToTray()
+    {
+        if (_mainWindow is null) return;
+
+        var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(_mainWindow);
+        var windowId = Microsoft.UI.Win32Interop.GetWindowIdFromWindow(hwnd);
+        var appWindow = Microsoft.UI.Windowing.AppWindow.GetFromWindowId(windowId);
+
+        appWindow.Closing += (sender, e) =>
+        {
+            e.Cancel = true;
+            sender.Hide();
+            Log.Information("窗口已最小化到系统托盘");
+        };
     }
 
     /// <summary>
@@ -133,7 +182,7 @@ public partial class App : Microsoft.UI.Xaml.Application
     }
 
     /// <summary>
-    /// 在 UI 线程上激活主窗口（从后台线程调度）
+    /// 在 UI 线程上激活主窗口（从后台线程、托盘或管道调度）
     /// </summary>
     private void ActivateMainWindow()
     {
@@ -141,8 +190,12 @@ public partial class App : Microsoft.UI.Xaml.Application
         {
             if (_mainWindow is not null)
             {
-                // 如果窗口被最小化，恢复到正常状态
+                // 恢复窗口可见（从隐藏/最小化状态）
                 var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(_mainWindow);
+                var windowId = Microsoft.UI.Win32Interop.GetWindowIdFromWindow(hwnd);
+                var appWindow = Microsoft.UI.Windowing.AppWindow.GetFromWindowId(windowId);
+                appWindow.Show();
+
                 PInvoke.ShowWindow(hwnd);
                 PInvoke.SetForegroundWindow(hwnd);
             }

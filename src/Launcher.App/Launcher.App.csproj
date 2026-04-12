@@ -8,7 +8,14 @@
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <DefineConstants>DISABLE_XAML_GENERATED_MAIN</DefineConstants>
+    <!-- CA1001: App 类持有 TrayIconManager 但生命周期与进程一致，无需实现 IDisposable -->
+    <NoWarn>$(NoWarn);CA1001</NoWarn>
   </PropertyGroup>
+
+  <!-- System.Windows.Forms 用于系统托盘图标（不使用 UseWindowsForms 避免与 WinUI XAML 冲突） -->
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.WindowsDesktop.App.WindowsForms" />
+  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="Microsoft.WindowsAppSDK" Version="1.6.250205002" />

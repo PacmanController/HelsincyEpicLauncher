@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+### Task 1.6 - 系统托盘 (2026-04-13)
+- TrayIconManager（System.Windows.Forms.NotifyIcon via FrameworkReference）
+- 系统托盘图标 + 右键菜单（显示主窗口 / 退出）
+- 托盘双击 → 显示主窗口
+- 关闭按钮 → 最小化到托盘（AppWindow.Closing Cancel + Hide）
+- ActivateMainWindow 增强：AppWindow.Show() 恢复隐藏窗口
+- Phase 1 Shell 壳层全部完成
+- dotnet build 9 个项目零错误零警告，dotnet test 15/15 通过
+
 ### Task 1.5 - 主题切换 + 状态栏 (2026-04-13)
 - ThemeService：Light / Dark / System 三种主题切换，即时生效
 - 主题持久化到 theme.json（%LOCALAPPDATA%/HelsincyEpicLauncher/Data/）
