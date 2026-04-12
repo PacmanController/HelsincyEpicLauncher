@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+### Task 0.2 - DI 容器 + 配置系统 (2026-04-12)
+- 创建 IAppConfigProvider 接口（Shared 层 — AppVersion / 各路径 / 下载参数）
+- 创建 AppConfigProvider 实现（Infrastructure 层 — 读取 IConfiguration，默认 %LOCALAPPDATA%）
+- 更新 appsettings.json 添加 Paths 和 Downloads 配置节
+- 实现 Program.cs 完整 DI 容器构建流程（ConfigurationBuilder → ServiceCollection → BuildServiceProvider）
+- 实现各层 AddXxx() 扩展方法（Domain / Application / Infrastructure / Presentation / Background）
+- 为各层项目添加 Microsoft.Extensions.DependencyInjection.Abstractions 包引用
+- 为 Infrastructure 添加 Microsoft.Extensions.Configuration.Abstractions 包引用
+- dotnet build 9 个项目零错误，dotnet test 2/2 通过
+
 ### Task 0.1 - 创建 Solution 和项目文件 (2026-04-12)
 - 创建 HelsincyEpicLauncher.slnx 解决方案
 - 创建 7 个源码项目：App / Presentation / Application / Domain / Infrastructure / Background / Shared
