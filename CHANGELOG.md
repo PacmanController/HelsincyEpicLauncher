@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+### Task 0.3 - Serilog 日志系统 (2026-04-12)
+- 创建 OperationContext（Shared/Logging — CorrelationId + Module + Operation 推入 LogContext）
+- 创建 OperationTimer（Shared/Logging — using 模式自动记录操作开始/完成及耗时）
+- 创建 LogSanitizer（Shared/Logging — Token 脱敏、URL 敏感参数清理、GeneratedRegex）
+- Program.cs 初始化 Serilog：主日志(Info+, 30天)、错误日志(Error+, 90天)、下载日志(Debug, 14天)
+- DEBUG 模式启用控制台 Sink（含 Module/Operation 模板）
+- 全局 Enricher：ThreadId / AppVersion / LogContext
+- Shared 层添加 Serilog 4.2.0 NuGet 引用
+- dotnet build 9 个项目零错误零警告，dotnet test 2/2 通过
+
 ### Task 0.2 - DI 容器 + 配置系统 (2026-04-12)
 - 创建 IAppConfigProvider 接口（Shared 层 — AppVersion / 各路径 / 下载参数）
 - 创建 AppConfigProvider 实现（Infrastructure 层 — 读取 IConfiguration，默认 %LOCALAPPDATA%）
