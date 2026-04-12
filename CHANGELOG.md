@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+### Task 1.1 - MainWindow 自定义标题栏 + Mica 背景 (2026-04-13)
+- 自定义标题栏：应用图标占位（品牌色 H 标识） + 标题文字 + 系统最小化/最大化/关闭按钮
+- ExtendsContentIntoTitleBar + SetTitleBar 实现窗口拖拽区域
+- MicaBackdrop 背景材质
+- Win32 子类化拦截 WM_GETMINMAXINFO 强制最小窗口尺寸 1024x640
+- PInvoke 扩展：GetDpiForWindow / SetWindowSubclass / DefSubclassProc / MINMAXINFO 结构体
+- DPI 感知：自动将 DIP 最小尺寸转为物理像素
+- dotnet build 9 个项目零错误，dotnet test 15/15 通过
+
 ### Task 0.7 - WinUI 3 空窗口 + 单实例 (2026-04-13)
 - 创建 App.xaml + App.xaml.cs（WinUI 3 Application 子类，管理单实例 + DI + Serilog + 数据库迁移）
 - 创建 MainWindow.xaml + MainWindow.xaml.cs（空窗口，1280x800 默认尺寸）

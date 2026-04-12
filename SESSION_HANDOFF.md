@@ -2,30 +2,29 @@
 
 ## 最后更新
 - 时间：2026-04-13
-- 完成任务：Task 0.7（WinUI 3 空窗口 + 单实例）
+- 完成任务：Task 1.1（MainWindow 自定义标题栏 + Mica 背景）
 
 ## 当前项目状态
 - 最后成功编译：是（dotnet build 9 个项目零错误）
 - 最后测试结果：全部通过（15/15）
-- 当前 Phase：Phase 0 完成 → Phase 1 开始
-- 下一个任务：Task 1.1（MainWindow 自定义标题栏 + Mica 背景）
+- 当前 Phase：Phase 1 进行中
+- 下一个任务：Task 1.2（ShellPage + NavigationView）
 
 ## 本次会话完成的工作
-1. 创建 App.xaml + App.xaml.cs（WinUI 3 Application 子类）
-2. 创建 MainWindow.xaml + MainWindow.xaml.cs（空窗口，1280x800 默认尺寸）
-3. 实现 Mutex 单实例保证
-4. 实现命名管道通信（第二实例 → 通知已有实例激活窗口）
-5. PInvoke ShowWindow + SetForegroundWindow
-6. Program.cs 简化为 WinUI 3 启动入口（DISABLE_XAML_GENERATED_MAIN）
-7. DI + Serilog + 数据库迁移移入 App.OnLaunched
+1. MainWindow.xaml 自定义标题栏（应用图标占位 + 标题文字 + 系统最小化/最大化/关闭按钮）
+2. ExtendsContentIntoTitleBar + SetTitleBar 拖拽区域
+3. MicaBackdrop 背景材质
+4. Win32 子类化（WM_GETMINMAXINFO）强制最小窗口尺寸 1024x640
+5. PInvoke 扩展：GetDpiForWindow + SetWindowSubclass + DefSubclassProc + MINMAXINFO
+6. DPI 感知缩放（DIP → 物理像素自动转换）
 
 ## 遗留问题
-- 无
+- git push 上次会话 SSL 失败，本地有累积提交待推送
 
 ## 下一个任务的输入
 - 读取文档：docs/06-ModuleDefinitions/Shell.md
-- 相关代码：src/Launcher.App/MainWindow.xaml(.cs)
-- 注意事项：自定义标题栏（应用图标 + 标题 + 最小化/最大化/关闭）+ Mica 背景 + 窗口拖拽区域
+- 相关代码：src/Launcher.App/MainWindow.xaml(.cs)、src/Launcher.Presentation/
+- 注意事项：ShellPage + NavigationView 左侧导航 + ContentFrame + NavigationService 完整实现替换 Stub
 
 ## 关键约束提醒
 - 文件名英文，内容中文（代码除外，注释中文）
