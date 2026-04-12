@@ -1,0 +1,27 @@
+<Project>
+  <PropertyGroup>
+    <!-- 通用设置 -->
+    <TargetFramework>net9.0-windows10.0.19041.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AnalysisLevel>latest-recommended</AnalysisLevel>
+
+    <!-- 版本信息 -->
+    <Version>0.1.0</Version>
+    <Authors>Helsincy</Authors>
+    <Product>HelsincyEpicLauncher</Product>
+    <Copyright>Copyright (c) Helsincy. All rights reserved.</Copyright>
+
+    <!-- 构建输出 -->
+    <RootNamespace>$(MSBuildProjectName.Replace(" ", "_"))</RootNamespace>
+    <AssemblyName>$(MSBuildProjectName)</AssemblyName>
+  </PropertyGroup>
+
+  <!-- 修复 dotnet CLI 构建 WinUI 3 项目时找不到 AppxPackage 工具的问题 -->
+  <!-- 当通过 dotnet build 而非 VS MSBuild 构建时，需要指向 VS 安装目录 -->
+  <PropertyGroup Condition="'$(MSBuildRuntimeType)' == 'Core'">
+    <_VSInstallDir>C:\Program Files\Microsoft Visual Studio\2022\Community</_VSInstallDir>
+    <AppxMSBuildToolsPath Condition="Exists('$(_VSInstallDir)\MSBuild\Microsoft\VisualStudio\v17.0\AppxPackage\')">$(_VSInstallDir)\MSBuild\Microsoft\VisualStudio\v17.0\AppxPackage\</AppxMSBuildToolsPath>
+  </PropertyGroup>
+</Project>

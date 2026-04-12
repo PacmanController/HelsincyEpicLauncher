@@ -1,0 +1,15 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Launcher.App/Launcher.App.csproj" />
+    <Project Path="src/Launcher.Application/Launcher.Application.csproj" />
+    <Project Path="src/Launcher.Background/Launcher.Background.csproj" />
+    <Project Path="src/Launcher.Domain/Launcher.Domain.csproj" />
+    <Project Path="src/Launcher.Infrastructure/Launcher.Infrastructure.csproj" />
+    <Project Path="src/Launcher.Presentation/Launcher.Presentation.csproj" />
+    <Project Path="src/Launcher.Shared/Launcher.Shared.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Launcher.Tests.Integration/Launcher.Tests.Integration.csproj" />
+    <Project Path="tests/Launcher.Tests.Unit/Launcher.Tests.Unit.csproj" />
+  </Folder>
+</Solution>
