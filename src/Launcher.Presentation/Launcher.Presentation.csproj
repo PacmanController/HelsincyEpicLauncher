@@ -3,6 +3,8 @@
     <UseWinUI>true</UseWinUI>
     <Platforms>x64</Platforms>
     <EnableMsixTooling>false</EnableMsixTooling>
+    <!-- MVVMTK0045: 抑制 partial property AOT 警告（非 AOT 场景无影响） -->
+    <NoWarn>$(NoWarn);MVVMTK0045</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>

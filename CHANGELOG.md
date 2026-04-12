@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+### Task 1.4 - Dialog 对话框服务 (2026-04-13)
+- IDialogService 接口（ShowConfirmAsync / ShowInfoAsync / ShowErrorAsync / ShowCustomAsync）
+- DialogService 实现：基于 WinUI 3 ContentDialog + XamlRoot 绑定
+- 确认对话框（Primary + Close 按钮）、信息对话框、错误对话框（含可重试按钮）
+- ShellPage.Loaded 设置 DialogService.XamlRoot
+- 抑制 MVVMTK0045 警告（非 AOT 场景无影响）
+- DI 注册 DialogService（具体类型 + 接口）
+- dotnet build 9 个项目零错误零警告，dotnet test 15/15 通过
+
 ### Task 1.3 - Toast 通知服务 (2026-04-13)
 - INotificationService 接口（ShowSuccess / ShowWarning / ShowError / ShowInfo，支持自定义持续时间）
 - NotificationService 实现：基于 WinUI 3 InfoBar 控件，支持 4 种严重级别

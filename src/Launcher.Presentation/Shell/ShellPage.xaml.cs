@@ -14,15 +14,17 @@ public sealed partial class ShellPage : UserControl
 {
     private static readonly ILogger Logger = Log.ForContext<ShellPage>();
     private readonly NavigationService _navigationService;
+    private readonly DialogService _dialogService;
 
     public ShellViewModel ViewModel { get; }
 
-    public ShellPage(ShellViewModel viewModel, NavigationService navigationService, NotificationService notificationService)
+    public ShellPage(ShellViewModel viewModel, NavigationService navigationService, NotificationService notificationService, DialogService dialogService)
     {
         this.InitializeComponent();
 
         ViewModel = viewModel;
         _navigationService = navigationService;
+        _dialogService = dialogService;
 
         // 将 ContentFrame 设置为导航宿主
         _navigationService.SetFrame(ContentFrame);
@@ -38,6 +40,9 @@ public sealed partial class ShellPage : UserControl
     /// </summary>
     private void ShellPage_Loaded(object sender, RoutedEventArgs e)
     {
+        // 设置 DialogService 的 XamlRoot（Loaded 后 XamlRoot 才有效）
+        _dialogService.SetXamlRoot(this.XamlRoot);
+
         // 选中第一个导航项，触发 SelectionChanged → 导航到默认页面
         NavView.SelectedItem = NavView.MenuItems[0];
         Logger.Information("ShellPage 已加载，默认导航到 Fab 资产库");

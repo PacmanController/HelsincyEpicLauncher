@@ -21,6 +21,10 @@ public static class DependencyInjection
         services.AddSingleton<NotificationService>();
         services.AddSingleton<INotificationService>(sp => sp.GetRequiredService<NotificationService>());
 
+        // 对话框（注册具体类型 + 接口，ShellPage 需要具体类型调用 SetXamlRoot）
+        services.AddSingleton<DialogService>();
+        services.AddSingleton<IDialogService>(sp => sp.GetRequiredService<DialogService>());
+
         // Shell ViewModel
         services.AddSingleton<ShellViewModel>();
 

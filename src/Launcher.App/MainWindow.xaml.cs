@@ -65,8 +65,9 @@ public sealed partial class MainWindow : Window
         var viewModel = App.Services.GetRequiredService<ShellViewModel>();
         var navigationService = App.Services.GetRequiredService<NavigationService>();
         var notificationService = App.Services.GetRequiredService<NotificationService>();
+        var dialogService = App.Services.GetRequiredService<DialogService>();
 
-        var shellPage = new ShellPage(viewModel, navigationService, notificationService);
+        var shellPage = new ShellPage(viewModel, navigationService, notificationService, dialogService);
         ContentArea.Children.Add(shellPage);
 
         Log.Debug("ShellPage 已加载到 MainWindow");
