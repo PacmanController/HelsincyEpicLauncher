@@ -9,6 +9,7 @@ public static class NavigationRoute
 {
     public const string FabLibrary = "FabLibrary";
     public const string Downloads = "Downloads";
+    public const string Installations = "Installations";
     public const string EngineVersions = "EngineVersions";
     public const string Settings = "Settings";
     public const string Diagnostics = "Diagnostics";

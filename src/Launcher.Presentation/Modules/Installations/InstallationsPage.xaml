@@ -1,0 +1,140 @@
+<!-- Copyright (c) Helsincy. All rights reserved. -->
+<Page
+    x:Class="Launcher.Presentation.Modules.Installations.InstallationsPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:Launcher.Presentation.Modules.Installations"
+    Background="Transparent"
+    Loaded="Page_Loaded">
+
+    <ScrollViewer Padding="36,24,36,24">
+        <StackPanel Spacing="8" MaxWidth="960">
+
+            <!-- 页面标题 + 统计 -->
+            <Grid Margin="0,0,0,16">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <TextBlock
+                    Grid.Column="0"
+                    Text="已安装资产"
+                    Style="{StaticResource TitleTextBlockStyle}" />
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="16" VerticalAlignment="Center"
+                            Visibility="{x:Bind ViewModel.HasInstallations, Mode=OneWay}">
+                    <TextBlock Style="{StaticResource BodyTextBlockStyle}"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}">
+                        <Run Text="{x:Bind ViewModel.InstallCount, Mode=OneWay}" />
+                        <Run Text="个资产" />
+                    </TextBlock>
+                    <TextBlock Style="{StaticResource BodyTextBlockStyle}"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                               Text="{x:Bind ViewModel.TotalSizeText, Mode=OneWay}" />
+                </StackPanel>
+            </Grid>
+
+            <!-- 加载中 -->
+            <ProgressRing IsActive="{x:Bind ViewModel.IsLoading, Mode=OneWay}"
+                          Visibility="{x:Bind ViewModel.IsLoading, Mode=OneWay}"
+                          Width="32" Height="32"
+                          HorizontalAlignment="Center" Margin="0,32,0,0" />
+
+            <!-- 空状态 -->
+            <StackPanel Visibility="{x:Bind local:InstallationsPage.NotToVisibility(ViewModel.HasInstallations), Mode=OneWay}"
+                        HorizontalAlignment="Center" Spacing="8" Margin="0,48,0,0">
+                <FontIcon Glyph="&#xE8B7;" FontSize="48"
+                          Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                          HorizontalAlignment="Center" />
+                <TextBlock Text="暂无已安装的资产"
+                           Style="{StaticResource SubtitleTextBlockStyle}"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                           HorizontalAlignment="Center" />
+                <TextBlock Text="从 Fab 资产库下载并安装资产后，将在此处显示"
+                           Style="{StaticResource BodyTextBlockStyle}"
+                           Foreground="{ThemeResource TextFillColorTertiaryBrush}"
+                           HorizontalAlignment="Center" />
+            </StackPanel>
+
+            <!-- 已安装列表 -->
+            <ItemsRepeater ItemsSource="{x:Bind ViewModel.Installations}"
+                           Visibility="{x:Bind ViewModel.HasInstallations, Mode=OneWay}">
+                <ItemsRepeater.Layout>
+                    <StackLayout Spacing="8" />
+                </ItemsRepeater.Layout>
+                <ItemsRepeater.ItemTemplate>
+                    <DataTemplate x:DataType="local:InstallItemViewModel">
+                        <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                                BorderThickness="1" CornerRadius="8" Padding="16">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                </Grid.RowDefinitions>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+
+                                <!-- 资产信息 -->
+                                <StackPanel Grid.Row="0" Grid.Column="0" Spacing="4">
+                                    <TextBlock Text="{x:Bind AssetName}"
+                                               Style="{StaticResource BodyStrongTextBlockStyle}" />
+                                    <StackPanel Orientation="Horizontal" Spacing="16">
+                                        <TextBlock Style="{StaticResource CaptionTextBlockStyle}"
+                                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}">
+                                            <Run Text="版本" />
+                                            <Run Text="{x:Bind Version}" />
+                                        </TextBlock>
+                                        <TextBlock Style="{StaticResource CaptionTextBlockStyle}"
+                                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                   Text="{x:Bind SizeText}" />
+                                        <TextBlock Style="{StaticResource CaptionTextBlockStyle}"
+                                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                   Text="{x:Bind InstalledAtText}" />
+                                    </StackPanel>
+                                    <TextBlock Style="{StaticResource CaptionTextBlockStyle}"
+                                               Foreground="{ThemeResource TextFillColorTertiaryBrush}"
+                                               Text="{x:Bind InstallPath}"
+                                               TextTrimming="CharacterEllipsis"
+                                               MaxWidth="500" HorizontalAlignment="Left" />
+                                </StackPanel>
+
+                                <!-- 操作按钮 -->
+                                <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal" Spacing="4"
+                                            VerticalAlignment="Center">
+                                    <Button Tag="{x:Bind AssetId}"
+                                            Click="VerifyButton_Click"
+                                            ToolTipService.ToolTip="校验文件完整性"
+                                            IsEnabled="{x:Bind local:InstallationsPage.Not(IsVerifying), Mode=OneWay}">
+                                        <FontIcon Glyph="&#xE9D5;" FontSize="14" />
+                                    </Button>
+                                    <Button Tag="{x:Bind AssetId}"
+                                            Click="RepairButton_Click"
+                                            ToolTipService.ToolTip="修复安装"
+                                            Visibility="{x:Bind NeedsRepair, Mode=OneWay}">
+                                        <FontIcon Glyph="&#xE90F;" FontSize="14" />
+                                    </Button>
+                                    <Button Tag="{x:Bind AssetId}"
+                                            Click="UninstallButton_Click"
+                                            ToolTipService.ToolTip="卸载">
+                                        <FontIcon Glyph="&#xE74D;" FontSize="14" />
+                                    </Button>
+                                </StackPanel>
+
+                                <!-- 状态文本 -->
+                                <TextBlock Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2"
+                                           Text="{x:Bind StatusText, Mode=OneWay}"
+                                           Style="{StaticResource CaptionTextBlockStyle}"
+                                           Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
+                                           Margin="0,4,0,0"
+                                           Visibility="{x:Bind local:InstallationsPage.StringToVisibility(StatusText), Mode=OneWay}" />
+                            </Grid>
+                        </Border>
+                    </DataTemplate>
+                </ItemsRepeater.ItemTemplate>
+            </ItemsRepeater>
+
+        </StackPanel>
+    </ScrollViewer>
+</Page>

@@ -2,6 +2,18 @@
 
 ## [Unreleased]
 
+### Task 5.3 - Uninstaller + Installations UI (2026-04-13)
+- InstallationsViewModel：已安装资产列表管理（Load/Verify/Repair/Uninstall 命令）
+- InstallItemViewModel：ObservableObject 列表项（State/NeedsRepair/StatusText/IsVerifying 响应式属性）
+- InstallationsPage.xaml：已安装资产卡片列表（名称/版本/大小/安装时间/路径）、校验/修复/卸载按钮、空状态提示
+- InstallationsPage.xaml.cs：ViewModelLocator 模式 + 按钮事件路由 + x:Bind 辅助方法
+- NavigationRoute 添加 Installations 路由常量
+- NavigationService RouteMap 注册 InstallationsPage
+- ShellPage NavigationView 添加"已安装"导航项（E8B7 图标）
+- ShellViewModel 添加 NavigateToInstallations 命令
+- Presentation DI 注册 InstallationsViewModel（Transient）
+- dotnet build 9 个项目零错误零警告，dotnet test 158/158 通过
+
 ### Task 5.2 - Integrity Verifier + Repair (2026-04-13)
 - IHashingService 接口（ComputeHashAsync 单文件 + ComputeHashesAsync 并行多文件）
 - HashingService 实现：SHA-256、FileStream 81920 缓冲区、SemaphoreSlim 并行控制、IProgress 报告

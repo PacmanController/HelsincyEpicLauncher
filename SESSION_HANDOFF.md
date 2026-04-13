@@ -2,13 +2,13 @@
 
 ## 最后更新
 - 时间：2026-04-13
-- 完成任务：Task 5.2（Integrity Verifier + Repair）
+- 完成任务：Task 5.3（Uninstaller + Installations UI）
 
 ## 当前项目状态
 - 最后成功编译：是（dotnet build 9 个项目零错误零警告）
 - 最后测试结果：全部通过（158/158）
-- 当前 Phase：Phase 5 进行中（Task 5.1 + 5.2 完成）
-- 下一个任务：Task 5.3（Uninstaller + Installations UI）
+- 当前 Phase：Phase 5 完成（Task 5.1 + 5.2 + 5.3 全部完成）
+- 下一个任务：Task 6.1（Fab API 客户端）
 
 ## 本次会话完成的工作
 
@@ -41,17 +41,25 @@
 - IIntegrityVerifier/IntegrityVerifier（两遍扫描：缺失+哈希校验）
 - InstallCommandService.RepairAsync 完整实现（Manifest 加载→校验→报告→状态转换）
 
+### Task 5.3 — Uninstaller + Installations UI
+- InstallationsViewModel：Load/Verify/Repair/Uninstall 命令、InstallItemViewModel 列表项
+- InstallationsPage.xaml：资产卡片列表（名称/版本/大小/路径/安装时间）、校验/修复/卸载按钮、空状态
+- NavigationRoute + NavigationService + ShellPage 添加"已安装"导航项
+- ShellViewModel 添加 NavigateToInstallations 命令
+- Presentation DI 注册 InstallationsViewModel
+
 ## 遗留问题
 - RepairAsync 目前仅检测损坏文件并记录日志，实际重新下载损坏文件需要 Downloads 模块配合（后续任务）
+- "下载完自动安装"开关功能需要 DownloadCompletedEvent → InstallAsync 联动，留待 Phase 6 或 7 整合
 
 ## 下一个任务的输入
-- 读取文档：docs/06-ModuleDefinitions/Installations.md
-- Task 5.3：Uninstaller + Installations UI
-  - InstallationsPage.xaml + InstallationsViewModel
-  - 已安装资产列表（名称/路径/大小/状态）
-  - 操作按钮：校验/修复/卸载
-  - 自动安装开关（下载完成后自动安装）
-  - UninstallAsync 已在 InstallCommandService 中实现
+- 读取文档：docs/06-ModuleDefinitions/FabLibrary.md
+- Task 6.1：Fab API 客户端
+  - IFabCatalogReadService / IFabAssetCommandService 实现
+  - Fab API HTTP 客户端（搜索、详情、已拥有查询）
+  - API DTO 映射
+  - Polly 韧性策略（重试 + 缓存）
+  - 搜索结果本地缓存（5 分钟过期）
 
 ## 关键约束提醒
 - 文件名英文，内容中文（代码除外，注释中文）

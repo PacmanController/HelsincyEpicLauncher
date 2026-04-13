@@ -58,6 +58,11 @@
                         <FontIcon Glyph="&#xE896;" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
+                <NavigationViewItem Content="已安装" Tag="Installations">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE8B7;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
                 <NavigationViewItem Content="引擎版本" Tag="EngineVersions">
                     <NavigationViewItem.Icon>
                         <FontIcon Glyph="&#xE74C;" />

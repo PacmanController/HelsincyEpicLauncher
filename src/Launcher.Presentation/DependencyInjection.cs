@@ -2,6 +2,7 @@
 
 using Launcher.Presentation.Modules.Diagnostics;
 using Launcher.Presentation.Modules.Downloads;
+using Launcher.Presentation.Modules.Installations;
 using Launcher.Presentation.Modules.Settings;
 using Launcher.Presentation.Shell;
 using Launcher.Presentation.Shell.Navigation;
@@ -42,6 +43,9 @@ public static class DependencyInjection
 
         // Downloads ViewModel（Transient：每次导航刷新列表）
         services.AddTransient<DownloadsViewModel>();
+
+        // Installations ViewModel（Transient：每次导航刷新列表）
+        services.AddTransient<InstallationsViewModel>();
 
         return services;
     }
