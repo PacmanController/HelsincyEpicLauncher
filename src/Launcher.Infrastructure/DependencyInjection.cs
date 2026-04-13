@@ -3,6 +3,7 @@
 using Launcher.Application.Modules.Auth.Contracts;
 using Launcher.Application.Modules.Diagnostics.Contracts;
 using Launcher.Application.Modules.Downloads.Contracts;
+using Launcher.Application.Modules.FabLibrary.Contracts;
 using Launcher.Application.Modules.Installations.Contracts;
 using Launcher.Application.Modules.Settings.Contracts;
 using Launcher.Application.Persistence;
@@ -10,6 +11,7 @@ using Launcher.Infrastructure.Auth;
 using Launcher.Infrastructure.Configuration;
 using Launcher.Infrastructure.Diagnostics;
 using Launcher.Infrastructure.Downloads;
+using Launcher.Infrastructure.FabLibrary;
 using Launcher.Infrastructure.Installations;
 using Launcher.Infrastructure.Persistence.Sqlite;
 using Launcher.Infrastructure.Persistence.Sqlite.Migrations;
@@ -71,6 +73,16 @@ public static class DependencyInjection
         services.AddSingleton<IIntegrityVerifier, IntegrityVerifier>();
         services.AddSingleton<IInstallCommandService, InstallCommandService>();
         services.AddSingleton<IInstallReadService, InstallReadService>();
+
+        // Fab 资产库
+        services.AddHttpClient("FabApi", client =>
+        {
+            client.BaseAddress = new Uri("https://www.fab.com/api");
+            client.DefaultRequestHeaders.Add("Accept", "application/json");
+        });
+        services.AddSingleton<FabApiClient>();
+        services.AddSingleton<IFabCatalogReadService, FabCatalogReadService>();
+        services.AddSingleton<IFabAssetCommandService, FabAssetCommandService>();
 
         return services;
     }

@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+### Task 6.1 - Fab API Client (2026-04-13)
+- PagedResult<T> 泛型分页容器（Shared 层）
+- FabModels：FabAssetType/AssetOwnershipState/FabSortOrder 枚举、FabSearchQuery 查询对象、FabAssetSummary/FabAssetDetail/AssetCategoryInfo/FabDownloadInfo DTO
+- IFabCatalogReadService 接口（SearchAsync/GetDetailAsync/GetOwnedAssetsAsync/GetCategoriesAsync）
+- IFabAssetCommandService 接口（DownloadAssetAsync/RefreshCacheAsync）
+- FabApiClient：HTTP 客户端 + Polly ResiliencePipeline（3 次指数退避重试 + 30s 超时）、Bearer 认证注入、snake_case JSON 反序列化、内部 API DTO 映射
+- FabCatalogReadService：ConcurrentDictionary 5 分钟内存缓存、IsInstalled 状态丰富、DTO → 领域模型映射
+- FabAssetCommandService：获取下载信息 → 构建 StartDownloadRequest → 委托 IDownloadCommandService
+- Infrastructure DI 注册：HttpClient("FabApi") + FabApiClient(Singleton) + IFabCatalogReadService + IFabAssetCommandService
+- dotnet build 9 个项目零错误零警告，dotnet test 158/158 通过
+
 ### Task 5.3 - Uninstaller + Installations UI (2026-04-13)
 - InstallationsViewModel：已安装资产列表管理（Load/Verify/Repair/Uninstall 命令）
 - InstallItemViewModel：ObservableObject 列表项（State/NeedsRepair/StatusText/IsVerifying 响应式属性）

@@ -2,15 +2,24 @@
 
 ## 最后更新
 - 时间：2026-04-13
-- 完成任务：Task 5.3（Uninstaller + Installations UI）
+- 完成任务：Task 6.1（Fab API 客户端）
 
 ## 当前项目状态
 - 最后成功编译：是（dotnet build 9 个项目零错误零警告）
 - 最后测试结果：全部通过（158/158）
-- 当前 Phase：Phase 5 完成（Task 5.1 + 5.2 + 5.3 全部完成）
-- 下一个任务：Task 6.1（Fab API 客户端）
+- 当前 Phase：Phase 6 进行中（Task 6.1 完成，下一步 Task 6.2）
+- 下一个任务：Task 6.2（Fab 资产浏览页）
 
 ## 本次会话完成的工作
+
+### Task 6.1 — Fab API 客户端
+- PagedResult<T> 泛型分页容器（Shared 层）
+- FabModels：FabAssetType/AssetOwnershipState/FabSortOrder 枚举、FabSearchQuery、5 个 DTO
+- IFabCatalogReadService / IFabAssetCommandService 应用层契约
+- FabApiClient：HTTP + Polly（3次重试+30s超时）、Bearer 认证、snake_case JSON、内部 API DTO
+- FabCatalogReadService：ConcurrentDictionary 5分钟缓存、IsInstalled 丰富、DTO 映射
+- FabAssetCommandService：下载信息获取 → StartDownloadRequest → 委托 IDownloadCommandService
+- Infrastructure DI 注册（HttpClient + FabApiClient + 两个服务）
 
 ### Task 4.1 — DownloadTask 领域实体 + 状态机
 - DownloadState（13 状态）、DownloadStateMachine（17 转换）、DownloadTask 实体、ChunkInfo/DownloadCheckpoint 值对象
@@ -50,16 +59,17 @@
 
 ## 遗留问题
 - RepairAsync 目前仅检测损坏文件并记录日志，实际重新下载损坏文件需要 Downloads 模块配合（后续任务）
-- "下载完自动安装"开关功能需要 DownloadCompletedEvent → InstallAsync 联动，留待 Phase 6 或 7 整合
+- "下载完自动安装"开关功能需要 DownloadCompletedEvent → InstallAsync 联动，留待 Phase 7 整合
+- Fab API 客户端目前无单元测试（HTTP 客户端需 mock HttpClient，留待集成测试或后续补充）
 
 ## 下一个任务的输入
 - 读取文档：docs/06-ModuleDefinitions/FabLibrary.md
-- Task 6.1：Fab API 客户端
-  - IFabCatalogReadService / IFabAssetCommandService 实现
-  - Fab API HTTP 客户端（搜索、详情、已拥有查询）
-  - API DTO 映射
-  - Polly 韧性策略（重试 + 缓存）
-  - 搜索结果本地缓存（5 分钟过期）
+- Task 6.2：Fab 资产浏览页
+  - FabLibraryPage.xaml + FabLibraryViewModel
+  - 虚拟化网格列表（ItemsRepeater）
+  - 缩略图懒加载 + LRU 缓存
+  - 骨架屏加载状态
+  - 分页/无限滚动
 
 ## 关键约束提醒
 - 文件名英文，内容中文（代码除外，注释中文）
