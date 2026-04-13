@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+### Task 2.5 - Diagnostics 页面 — 日志查看器 (2026-04-13)
+- LogEntryLevel 枚举 + LogEntry 模型（Timestamp/Level/Source/Message/Exception/CorrelationId）
+- IDiagnosticsReadService 扩展：GetRecentLogsAsync（数量+级别筛选）/ SearchLogsAsync（关键字+级别）
+- DiagnosticsService 实现 CompactJSON 日志文件解析（@t/@l/@m/@mt/SourceContext/@x/CorrelationId）
+- 支持 FileShare.ReadWrite 读取 Serilog 正在写入的日志文件
+- DiagnosticsViewModel 日志查看状态：搜索关键字、级别筛选、ObservableCollection 绑定、导出
+- DiagnosticsPage.xaml Pivot 双 Tab：系统信息 + 日志查看器
+- 日志查看器 UI：搜索框、级别 ComboBox、查询/导出按钮、ListView + DataTemplate、底部日志计数
+- LogEntryDisplay UI 显示模型（Timestamp/Level/LevelColor/Source/Message/Exception/CorrelationId）
+- dotnet build 9 个项目零错误零警告，dotnet test 21/21 通过
+
 ### Task 2.4 - Diagnostics 页面 — 系统信息 (2026-04-13)
 - SystemDiagnosticsSummary 模型（OS/内存/磁盘/版本/进程内存/数据库大小）
 - IDiagnosticsReadService 接口（GetSystemSummaryAsync）

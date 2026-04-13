@@ -37,3 +37,39 @@ public sealed class SystemDiagnosticsSummary
     /// <summary>数据库文件大小（MB）</summary>
     public long DatabaseSizeMb { get; init; }
 }
+
+/// <summary>
+/// 日志级别
+/// </summary>
+public enum LogEntryLevel
+{
+    Debug,
+    Information,
+    Warning,
+    Error,
+    Fatal,
+}
+
+/// <summary>
+/// 日志条目
+/// </summary>
+public sealed class LogEntry
+{
+    /// <summary>时间戳</summary>
+    public DateTime Timestamp { get; init; }
+
+    /// <summary>日志级别</summary>
+    public LogEntryLevel Level { get; init; }
+
+    /// <summary>来源模块（SourceContext）</summary>
+    public string Source { get; init; } = string.Empty;
+
+    /// <summary>日志消息</summary>
+    public string Message { get; init; } = string.Empty;
+
+    /// <summary>异常信息（如有）</summary>
+    public string? Exception { get; init; }
+
+    /// <summary>关联 ID</summary>
+    public string? CorrelationId { get; init; }
+}

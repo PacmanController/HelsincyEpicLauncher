@@ -9,4 +9,10 @@ public interface IDiagnosticsReadService
 {
     /// <summary>获取系统诊断摘要</summary>
     Task<SystemDiagnosticsSummary> GetSystemSummaryAsync(CancellationToken ct = default);
+
+    /// <summary>获取最近日志条目</summary>
+    Task<IReadOnlyList<LogEntry>> GetRecentLogsAsync(int count, LogEntryLevel? minLevel = null, CancellationToken ct = default);
+
+    /// <summary>搜索日志（关键字 + 可选时间范围）</summary>
+    Task<IReadOnlyList<LogEntry>> SearchLogsAsync(string keyword, LogEntryLevel? minLevel = null, CancellationToken ct = default);
 }

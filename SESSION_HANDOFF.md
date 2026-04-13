@@ -2,26 +2,27 @@
 
 ## 最后更新
 - 时间：2026-04-13
-- 完成任务：Task 2.4（Diagnostics 页面 — 系统信息）
+- 完成任务：Task 2.5（Diagnostics 页面 — 日志查看器）
 
 ## 当前项目状态
 - 最后成功编译：是（dotnet build 9 个项目零错误零警告）
 - 最后测试结果：全部通过（21/21）
 - 当前 Phase：Phase 2 进行中
-- 下一个任务：Task 2.5（Diagnostics 页面 — 日志查看器）
+- 下一个任务：Task 2.6（Phase 2 集成测试）
 
 ## 本次会话完成的工作
-1. SystemDiagnosticsSummary 模型 + IDiagnosticsReadService 接口
-2. DiagnosticsService 实现（磁盘/内存/OS/数据库信息采集）
-3. DiagnosticsViewModel + DiagnosticsPage.xaml 完整 UI
-4. DI 注册
+1. LogEntryLevel 枚举 + LogEntry 模型
+2. IDiagnosticsReadService 扩展（GetRecentLogsAsync / SearchLogsAsync）
+3. DiagnosticsService CompactJSON 日志解析 + 搜索/筛选
+4. DiagnosticsViewModel 日志查看器状态管理（搜索、级别筛选、导出）
+5. DiagnosticsPage.xaml Pivot 双 Tab UI（系统信息 + 日志查看器）
 
 ## 遗留问题
 - 无
 
 ## 下一个任务的输入
-- 读取文档：docs/06-ModuleDefinitions/Diagnostics.md + docs/15-LoggingStrategy.md § 10
-- 注意事项：日志 Tab、级别筛选、搜索、CorrelationId 追踪、日志导出
+- 读取文档：docs/13-DevelopmentPhases.md Task 2.6（Phase 2 集成测试）
+- 注意事项：Tab 3 缓存统计 + 清理、ICacheManager 等
 
 ## 关键约束提醒
 - 文件名英文，内容中文（代码除外，注释中文）
