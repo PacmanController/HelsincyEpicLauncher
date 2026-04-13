@@ -67,6 +67,8 @@ public static class DependencyInjection
         // 安装
         services.AddSingleton<IInstallationRepository, InstallationRepository>();
         services.AddSingleton<InstallWorker>();
+        services.AddSingleton<IHashingService, HashingService>();
+        services.AddSingleton<IIntegrityVerifier, IntegrityVerifier>();
         services.AddSingleton<IInstallCommandService, InstallCommandService>();
         services.AddSingleton<IInstallReadService, InstallReadService>();
 
