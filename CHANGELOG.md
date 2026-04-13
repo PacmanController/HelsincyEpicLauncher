@@ -2,7 +2,83 @@
 
 ## [Unreleased]
 
-### Task 3.3 - 登录 UI + Shell 集成 (2026-04-13)
+### Task 5.2 - Integrity Verifier + Repair (2026-04-13)
+- IHashingService 接口（ComputeHashAsync 单文件 + ComputeHashesAsync 并行多文件）
+- HashingService 实现：SHA-256、FileStream 81920 缓冲区、SemaphoreSlim 并行控制、IProgress 报告
+- IIntegrityVerifier 接口（VerifyFileAsync 单文件 + VerifyInstallationAsync 整体校验）
+- IntegrityVerifier 实现：两遍扫描（缺失文件检查 + 并行哈希校验，MaxParallelism=4）
+- InstallCommandService.RepairAsync 完整实现：加载 Manifest → 完整性校验 → 报告损坏文件 → 状态转换
+- Infrastructure DI 注册 IHashingService → HashingService、IIntegrityVerifier → IntegrityVerifier
+- HashingServiceTests（8 个测试）+ IntegrityVerifierTests（8 个测试）
+- dotnet build 9 个项目零错误零警告，dotnet test 158/158 通过
+
+### Task 5.1 - Install Worker + Manifest (2026-04-13)
+- InstallState 枚举（8 状态：NotInstalled/Installing/Installed/Verifying/NeedsRepair/Repairing/Uninstalling/Failed）
+- InstallStateMachine（16 条状态转换规则）
+- InstallManifest + ManifestFileEntry（资产清单 + 文件条目：RelativePath/Size/Hash）
+- Installation 领域实体（Entity<string>，封装状态机 + 属性更新）
+- IInstallCommandService / IInstallReadService / IInstallationRepository / IIntegrityVerifier 应用层契约
+- InstallModels：InstallRequest / InstallStatusSummary / VerificationReport / VerificationProgress + 4 事件
+- InstallationRepository：SQLite+Dapper CRUD + Manifest JSON 文件持久化（ManifestJsonContext AOT 安全）
+- InstallWorker：ZIP 解压（Zip Slip 防护）/ 单文件复制 / SHA-256 哈希 / 磁盘空间检查（×2.5）/ 进度报告
+- InstallCommandService：InstallAsync/UninstallAsync/RepairAsync 编排
+- InstallReadService：Installation → InstallStatusSummary 映射
+- Infrastructure DI 注册 4 个安装模块服务
+- InstallStateMachineTests（27 个测试）+ InstallationTests（11 个测试）
+- dotnet build 9 个项目零错误零警告，dotnet test 142/142 通过
+
+### Task 4.6 - Downloads UI 页面 (2026-04-13)
+- IDownloadRuntimeStore 应用层接口（解耦 Presentation 与 Infrastructure）
+- DownloadsViewModel：活跃下载 + 历史记录 ObservableCollection、暂停/恢复/取消命令
+- DownloadsPage.xaml：标题速度头、活跃下载 ItemsRepeater（卡片布局+进度条+状态+操作按钮）、空状态提示、历史区域
+- BoolNegationVisibilityConverter 值转换器
+- ShellViewModel 订阅 IDownloadRuntimeStore 事件：状态栏下载速度实时显示
+- ShellPage.xaml 状态栏下载速度 mini 面板
+- DownloadRuntimeStore 双接口 DI 注册（具体类型 + IDownloadRuntimeStore）
+- Presentation DI 注册 DownloadsViewModel（Transient）
+- dotnet build 9 个项目零错误零警告，dotnet test 104/104 通过
+
+### Task 4.5 - DownloadRuntimeStore + 进度聚合 (2026-04-13)
+- DownloadRuntimeStore：ConcurrentDictionary 快照管理 + SpeedCalculator 滑动窗口（5s）
+- DownloadProgressSnapshot DTO（TaskId/Status/Progress/Speed/ETA/FileName 等）
+- 事件：SnapshotChanged / DownloadCompleted / DownloadFailed
+- 速度计算：500ms 节流 + 字节差值 / 时间差值
+- ETA 计算：剩余字节 / 当前速度
+- dotnet build 9 个项目零错误零警告，dotnet test 104/104 通过
+
+### Task 4.4 - Checkpoint 持久化 + 崩溃恢复 (2026-04-13)
+- Migration_005_DownloadCheckpoints：检查点表（task_id/chunk_index/downloaded_bytes/updated_at）
+- IDownloadTaskRepository 扩展：SaveCheckpointAsync / GetCheckpointsAsync / DeleteCheckpointsAsync
+- DownloadTaskRepository 检查点 CRUD 实现（Dapper）
+- DownloadOrchestrator 崩溃恢复：启动时加载未完成任务 + 恢复检查点 + 自动续传
+- ChunkDownloadClient 断点续传：Range 头 + 检查点偏移
+- 崩溃恢复集成测试
+- dotnet build 9 个项目零错误零警告，dotnet test 91/91 通过
+
+### Task 4.3 - ChunkDownloader + HTTP Range + Polly 韧性 (2026-04-13)
+- ChunkDownloadClient：HTTP Range 分块下载 + IProgress 报告
+- Polly ResiliencePipeline：指数退避重试（3 次）+ 超时（30s）+ 断路器
+- 分块策略：自动计算分块数（10MB 基准）
+- 临时文件 → 合并 → 最终文件原子写入
+- dotnet build 9 个项目零错误零警告，dotnet test 78/78 通过
+
+### Task 4.2 - Download Orchestrator + Scheduler + 服务层 (2026-04-13)
+- DownloadScheduler：并发控制（SemaphoreSlim）+ 优先级队列 + 暂停/恢复
+- DownloadOrchestrator：下载全流程编排（创建→排队→执行→完成/失败）
+- IDownloadCommandService / IDownloadReadService 应用层接口
+- DownloadCommandService / DownloadReadService 实现
+- IDownloadTaskRepository + DownloadTaskRepository（SQLite+Dapper）
+- Infrastructure DI 注册全部下载模块服务
+- dotnet build 9 个项目零错误零警告，dotnet test 62/62 通过
+
+### Task 4.1 - DownloadTask 领域实体 + 状态机 (2026-04-13)
+- DownloadState 枚举（13 状态）+ DownloadTaskId 值对象
+- DownloadStateMachine（17 条状态转换规则）
+- DownloadTask 领域实体（Entity<DownloadTaskId>，状态机 + 进度更新 + 速度/ETA）
+- ChunkInfo / DownloadCheckpoint 值对象
+- DownloadStateMachineTests（17 合法 + 8 非法 + 默认 + CanTransitionTo + 4 流程测试）
+- DownloadTaskTests（15 个测试：构造/状态转换/进度/AddChunk/ResetProgress）
+- dotnet build 9 个项目零错误零警告，dotnet test 55/55 通过
 - ShellViewModel 集成 IAuthService：登录/登出/会话恢复命令
 - ShellPage NavigationView PaneHeader 用户信息区域（PersonPicture + 显示名 + 登出按钮）
 - 未登录状态显示“登录 Epic Games”按钮（AccentButtonStyle）
