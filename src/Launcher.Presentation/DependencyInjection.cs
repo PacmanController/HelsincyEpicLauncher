@@ -1,5 +1,6 @@
 // Copyright (c) Helsincy. All rights reserved.
 
+using Launcher.Presentation.Modules.Settings;
 using Launcher.Presentation.Shell;
 using Launcher.Presentation.Shell.Navigation;
 using Microsoft.Extensions.DependencyInjection;
@@ -30,6 +31,9 @@ public static class DependencyInjection
 
         // Shell ViewModel
         services.AddSingleton<ShellViewModel>();
+
+        // Settings ViewModel（Transient：每次导航到设置页面刷新最新配置）
+        services.AddTransient<SettingsViewModel>();
 
         return services;
     }

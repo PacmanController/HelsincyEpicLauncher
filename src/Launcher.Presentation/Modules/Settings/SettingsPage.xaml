@@ -5,13 +5,323 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     Background="Transparent">
 
-    <Grid>
-        <TextBlock
-            Text="设置"
-            FontSize="28"
-            FontWeight="SemiBold"
-            HorizontalAlignment="Center"
-            VerticalAlignment="Center"
-            Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
-    </Grid>
+    <ScrollViewer Padding="36,24,36,24">
+        <StackPanel Spacing="8" MaxWidth="800">
+
+            <!-- 页面标题 -->
+            <TextBlock
+                Text="设置"
+                Style="{StaticResource TitleTextBlockStyle}"
+                Margin="0,0,0,16" />
+
+            <!-- ====== 通用（外观） ====== -->
+            <TextBlock
+                Text="通用"
+                Style="{StaticResource SubtitleTextBlockStyle}"
+                Margin="0,0,0,8" />
+
+            <!-- 主题 -->
+            <Grid
+                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                CornerRadius="4"
+                Padding="16,12"
+                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                BorderThickness="1">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                    <TextBlock Text="主题" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                    <TextBlock Text="选择应用程序的外观主题" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                </StackPanel>
+                <ComboBox
+                    Grid.Column="1"
+                    MinWidth="150"
+                    VerticalAlignment="Center"
+                    SelectedIndex="{x:Bind ViewModel.SelectedThemeIndex, Mode=TwoWay}">
+                    <ComboBoxItem Content="跟随系统" />
+                    <ComboBoxItem Content="浅色" />
+                    <ComboBoxItem Content="深色" />
+                </ComboBox>
+            </Grid>
+
+            <!-- 语言 -->
+            <Grid
+                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                CornerRadius="4"
+                Padding="16,12"
+                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                BorderThickness="1">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                    <TextBlock Text="语言" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                    <TextBlock Text="选择界面显示语言" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                </StackPanel>
+                <ComboBox
+                    Grid.Column="1"
+                    MinWidth="150"
+                    VerticalAlignment="Center"
+                    IsEnabled="False"
+                    ToolTipService.ToolTip="即将支持">
+                    <ComboBoxItem Content="简体中文" IsSelected="True" />
+                    <ComboBoxItem Content="English" />
+                </ComboBox>
+            </Grid>
+
+            <!-- ====== 下载 ====== -->
+            <TextBlock
+                Text="下载"
+                Style="{StaticResource SubtitleTextBlockStyle}"
+                Margin="0,16,0,8" />
+
+            <!-- 最大并行下载数 -->
+            <Grid
+                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                CornerRadius="4"
+                Padding="16,12"
+                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                BorderThickness="1">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                    <TextBlock Text="最大并行下载数" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                    <TextBlock Text="同时进行的下载任务数量（1-10）" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                </StackPanel>
+                <NumberBox
+                    Grid.Column="1"
+                    MinWidth="120"
+                    VerticalAlignment="Center"
+                    Value="{x:Bind ViewModel.MaxConcurrentDownloads, Mode=TwoWay}"
+                    Minimum="1"
+                    Maximum="10"
+                    SpinButtonPlacementMode="Compact" />
+            </Grid>
+
+            <!-- 每个任务分块数 -->
+            <Grid
+                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                CornerRadius="4"
+                Padding="16,12"
+                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                BorderThickness="1">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                    <TextBlock Text="分块并行数" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                    <TextBlock Text="每个下载任务的并行分块数量（1-16）" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                </StackPanel>
+                <NumberBox
+                    Grid.Column="1"
+                    MinWidth="120"
+                    VerticalAlignment="Center"
+                    Value="{x:Bind ViewModel.MaxChunksPerDownload, Mode=TwoWay}"
+                    Minimum="1"
+                    Maximum="16"
+                    SpinButtonPlacementMode="Compact" />
+            </Grid>
+
+            <!-- 自动安装 -->
+            <Grid
+                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                CornerRadius="4"
+                Padding="16,12"
+                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                BorderThickness="1">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                    <TextBlock Text="下载后自动安装" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                    <TextBlock Text="下载完成后自动开始安装" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                </StackPanel>
+                <ToggleSwitch
+                    Grid.Column="1"
+                    VerticalAlignment="Center"
+                    IsOn="{x:Bind ViewModel.AutoInstall, Mode=TwoWay}"
+                    OnContent="开"
+                    OffContent="关" />
+            </Grid>
+
+            <!-- 保存下载配置按钮 -->
+            <Button
+                Content="保存下载配置"
+                Command="{x:Bind ViewModel.SaveDownloadConfigCommand}"
+                Style="{StaticResource AccentButtonStyle}"
+                HorizontalAlignment="Right"
+                Margin="0,4,0,0" />
+
+            <!-- ====== 路径 ====== -->
+            <TextBlock
+                Text="路径"
+                Style="{StaticResource SubtitleTextBlockStyle}"
+                Margin="0,16,0,8" />
+
+            <!-- 下载路径 -->
+            <Grid
+                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                CornerRadius="4"
+                Padding="16,12"
+                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                BorderThickness="1">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+                <TextBlock Grid.Row="0" Text="默认下载路径" Style="{StaticResource BodyStrongTextBlockStyle}" Margin="0,0,0,4" />
+                <TextBox Grid.Row="1" Text="{x:Bind ViewModel.DownloadPath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="留空使用默认位置" />
+            </Grid>
+
+            <!-- 安装路径 -->
+            <Grid
+                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                CornerRadius="4"
+                Padding="16,12"
+                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                BorderThickness="1">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+                <TextBlock Grid.Row="0" Text="默认安装路径" Style="{StaticResource BodyStrongTextBlockStyle}" Margin="0,0,0,4" />
+                <TextBox Grid.Row="1" Text="{x:Bind ViewModel.InstallPath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="留空使用默认位置" />
+            </Grid>
+
+            <!-- 缓存路径 -->
+            <Grid
+                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                CornerRadius="4"
+                Padding="16,12"
+                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                BorderThickness="1">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+                <TextBlock Grid.Row="0" Text="缓存路径" Style="{StaticResource BodyStrongTextBlockStyle}" Margin="0,0,0,4" />
+                <TextBox Grid.Row="1" Text="{x:Bind ViewModel.CachePath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="留空使用默认位置" />
+            </Grid>
+
+            <!-- 保存路径配置按钮 -->
+            <Button
+                Content="保存路径配置"
+                Command="{x:Bind ViewModel.SavePathConfigCommand}"
+                Style="{StaticResource AccentButtonStyle}"
+                HorizontalAlignment="Right"
+                Margin="0,4,0,0" />
+
+            <!-- ====== 高级（网络） ====== -->
+            <TextBlock
+                Text="高级"
+                Style="{StaticResource SubtitleTextBlockStyle}"
+                Margin="0,16,0,8" />
+
+            <!-- 代理地址 -->
+            <Grid
+                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                CornerRadius="4"
+                Padding="16,12"
+                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                BorderThickness="1">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+                <StackPanel Grid.Row="0" Margin="0,0,0,4">
+                    <TextBlock Text="HTTP 代理" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                    <TextBlock Text="格式：http://host:port，留空不使用代理" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                </StackPanel>
+                <TextBox Grid.Row="1" Text="{x:Bind ViewModel.ProxyAddress, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="http://127.0.0.1:7890" />
+            </Grid>
+
+            <!-- 超时时间 -->
+            <Grid
+                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                CornerRadius="4"
+                Padding="16,12"
+                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                BorderThickness="1">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                    <TextBlock Text="请求超时" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                    <TextBlock Text="HTTP 请求超时时间（秒，5-300）" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                </StackPanel>
+                <NumberBox
+                    Grid.Column="1"
+                    MinWidth="120"
+                    VerticalAlignment="Center"
+                    Value="{x:Bind ViewModel.TimeoutSeconds, Mode=TwoWay}"
+                    Minimum="5"
+                    Maximum="300"
+                    SpinButtonPlacementMode="Compact" />
+            </Grid>
+
+            <!-- CDN 回退 -->
+            <Grid
+                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                CornerRadius="4"
+                Padding="16,12"
+                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                BorderThickness="1">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                    <TextBlock Text="CDN 回退" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                    <TextBlock Text="主 CDN 失败时自动切换备用节点" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                </StackPanel>
+                <ToggleSwitch
+                    Grid.Column="1"
+                    VerticalAlignment="Center"
+                    IsOn="{x:Bind ViewModel.EnableCdnFallback, Mode=TwoWay}"
+                    OnContent="开"
+                    OffContent="关" />
+            </Grid>
+
+            <!-- 保存网络配置按钮 -->
+            <Button
+                Content="保存网络配置"
+                Command="{x:Bind ViewModel.SaveNetworkConfigCommand}"
+                Style="{StaticResource AccentButtonStyle}"
+                HorizontalAlignment="Right"
+                Margin="0,4,0,0" />
+
+            <!-- ====== 操作区 ====== -->
+            <Grid Margin="0,24,0,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <!-- 状态消息 -->
+                <TextBlock
+                    Grid.Column="0"
+                    Text="{x:Bind ViewModel.StatusMessage, Mode=OneWay}"
+                    Style="{StaticResource CaptionTextBlockStyle}"
+                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                    VerticalAlignment="Center" />
+
+                <!-- 重置按钮 -->
+                <Button
+                    Grid.Column="1"
+                    Content="重置所有设置"
+                    Command="{x:Bind ViewModel.ResetToDefaultsCommand}" />
+            </Grid>
+
+            <!-- 底部留白 -->
+            <Border Height="24" />
+        </StackPanel>
+    </ScrollViewer>
 </Page>

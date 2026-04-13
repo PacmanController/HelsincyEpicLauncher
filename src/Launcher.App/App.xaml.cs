@@ -226,6 +226,9 @@ public partial class App : Microsoft.UI.Xaml.Application
 
         Services = services.BuildServiceProvider();
 
+        // 配置 ViewModelLocator（供 Frame.Navigate 创建的页面解析 ViewModel）
+        ViewModelLocator.Configure(Services);
+
         // 初始化 Serilog
         var configProvider = Services.GetRequiredService<IAppConfigProvider>();
         InitializeSerilog(configProvider);

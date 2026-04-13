@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+### Task 2.2 - Settings 页面 UI (2026-04-13)
+- SettingsViewModel（CommunityToolkit.Mvvm）：下载/外观/路径/网络四组配置双向绑定
+- SettingsPage.xaml 完整 UI：通用、下载、路径、高级四个设置分组
+- 主题切换实时生效（ComboBox 选择后即时通知 ThemeService）
+- 各分组独立保存按钮 + 全局重置按钮
+- 状态消息提示（保存成功/失败/重置完成）
+- ViewModelLocator 静态服务定位器（解决 Frame.Navigate 无法构造器注入的问题）
+- Presentation DI 注册 SettingsViewModel（Transient）
+- App.xaml.cs 启动时配置 ViewModelLocator
+- dotnet build 9 个项目零错误零警告，dotnet test 15/15 通过
+
 ### Task 2.1 - 配置系统完整实现 (2026-04-13)
 - 强类型配置类：DownloadConfig / AppearanceConfig / PathConfig / NetworkConfig（Application 层）
 - ConfigChangedEvent 配置变更事件（sealed record，Section + NewConfig）
