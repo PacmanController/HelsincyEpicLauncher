@@ -46,7 +46,8 @@ public sealed record DownloadProgressSnapshot(
     double ProgressPercent,
     long DownloadedBytes,
     long TotalBytes,
-    long SpeedBytesPerSecond);
+    long SpeedBytesPerSecond,
+    TimeSpan? EstimatedRemaining = null);
 
 // ===== 事件 =====
 

@@ -57,6 +57,7 @@ public static class DependencyInjection
         services.AddSingleton<IDownloadTaskRepository, DownloadTaskRepository>();
         services.AddSingleton<DownloadScheduler>();
         services.AddSingleton<DownloadOrchestrator>();
+        services.AddSingleton<DownloadRuntimeStore>();
         services.AddSingleton<IDownloadCommandService, DownloadCommandService>();
         services.AddSingleton<IDownloadReadService, DownloadReadService>();
 
