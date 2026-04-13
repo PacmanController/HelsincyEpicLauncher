@@ -6,6 +6,7 @@ using Launcher.Application.Modules.Downloads.Contracts;
 using Launcher.Application.Modules.EngineVersions.Contracts;
 using Launcher.Application.Modules.FabLibrary.Contracts;
 using Launcher.Application.Modules.Installations.Contracts;
+using Launcher.Application.Modules.Plugins.Contracts;
 using Launcher.Application.Modules.Settings.Contracts;
 using Launcher.Application.Persistence;
 using Launcher.Infrastructure.Auth;
@@ -15,6 +16,7 @@ using Launcher.Infrastructure.Downloads;
 using Launcher.Infrastructure.EngineVersions;
 using Launcher.Infrastructure.FabLibrary;
 using Launcher.Infrastructure.Installations;
+using Launcher.Infrastructure.Plugins;
 using Launcher.Infrastructure.Persistence.Sqlite;
 using Launcher.Infrastructure.Persistence.Sqlite.Migrations;
 using Launcher.Infrastructure.Settings;
@@ -101,6 +103,10 @@ public static class DependencyInjection
         services.AddSingleton<EngineVersionApiClient>();
         services.AddSingleton<IEngineVersionReadService, EngineVersionReadService>();
         services.AddSingleton<IEngineVersionCommandService, EngineVersionCommandService>();
+
+        // 插件管理
+        services.AddSingleton<IPluginReadService, PluginReadService>();
+        services.AddSingleton<IPluginCommandService, PluginCommandService>();
 
         return services;
     }

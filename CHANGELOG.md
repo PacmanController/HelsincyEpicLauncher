@@ -2,6 +2,21 @@
 
 ## [Unreleased]
 
+### Task 7.2 - 引擎启动 + 插件管理 (2026-04-13)
+- Application 层契约：PluginSummary / CompatibilityReport DTO、IPluginReadService（已安装插件查询/兼容性检查）、IPluginCommandService（添加/移除项目插件）
+- PluginReadService：扫描已安装资产（排除 UE_ 前缀）、解析 .uplugin JSON 元数据（FriendlyName/VersionName/CreatedBy/EngineVersion）、兼容性检查（SupportedEngineVersions 匹配）
+- PluginCommandService：.uproject JSON 文件编辑（JsonNode/JsonArray API）、添加/移除 Plugins 数组条目、FindUprojectFile/FindPluginEntry 工具方法
+- PluginsViewModel：ObservableCollection<PluginItemViewModel> 插件列表、Load/CheckCompatibility 命令、IsLoading/HasPlugins/IsEmpty/HasError 状态管理
+- PluginItemViewModel：PluginId/Name/Version/Author/InstallPath/SupportedVersionsText/CompatibilityText/IsCompatible 属性
+- PluginsPage.xaml：标题栏+刷新按钮、ProgressRing 加载、InfoBar 错误提示、ItemsRepeater 插件卡片（图标/名称/版本/作者/路径/支持版本/兼容性）、空状态
+- NavigationRoute 添加 Plugins 路由常量 + NavigationService RouteMap 注册
+- ShellPage.xaml 添加"插件管理"导航项（FontIcon &#xEA86;）
+- ShellViewModel 添加 NavigateToPlugins 命令
+- Infrastructure DI：IPluginReadService → PluginReadService（Singleton）、IPluginCommandService → PluginCommandService（Singleton）
+- Presentation DI：PluginsViewModel（Transient）
+- 引擎启动功能已在 Task 7.1 EngineVersionCommandService.LaunchEditorAsync 中实现
+- dotnet build 9 项目零错误零警告，dotnet test 158/158 通过
+
 ### Task 7.1 - 引擎版本管理 (2026-04-13)
 - Application 层契约：EngineVersionSummary / InstalledEngineSummary DTO、IEngineVersionReadService（可用+已安装查询）、IEngineVersionCommandService（下载安装/卸载/启动编辑器）
 - EngineVersionApiClient：Polly 重试 3 次指数退避 + 30s 超时、Bearer 认证、snake_case JSON 反序列化、内部 DTO

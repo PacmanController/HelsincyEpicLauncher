@@ -6,6 +6,7 @@ using Launcher.Presentation.Modules.Downloads;
 using Launcher.Presentation.Modules.EngineVersions;
 using Launcher.Presentation.Modules.FabLibrary;
 using Launcher.Presentation.Modules.Installations;
+using Launcher.Presentation.Modules.Plugins;
 using Launcher.Presentation.Modules.Settings;
 using Serilog;
 
@@ -32,6 +33,7 @@ public sealed class NavigationService : INavigationService
         [NavigationRoute.Downloads] = typeof(DownloadsPage),
         [NavigationRoute.Installations] = typeof(InstallationsPage),
         [NavigationRoute.EngineVersions] = typeof(EngineVersionsPage),
+        [NavigationRoute.Plugins] = typeof(PluginsPage),
         [NavigationRoute.Settings] = typeof(SettingsPage),
         [NavigationRoute.Diagnostics] = typeof(DiagnosticsPage),
     };

@@ -2,15 +2,27 @@
 
 ## 最后更新
 - 时间：2026-04-13
-- 完成任务：Task 7.1（引擎版本管理）
+- 完成任务：Task 7.2（引擎启动 + 插件管理）— Phase 7 全部完成
 
 ## 当前项目状态
 - 最后成功编译：是（dotnet build 9 个项目零错误零警告）
 - 最后测试结果：全部通过（158/158）
-- 当前 Phase：Phase 7 进行中（Task 7.1 完成，Task 7.2 待开始）
-- 下一个任务：Task 7.2（引擎启动 + 插件管理）
+- 当前 Phase：Phase 7 已完成（Task 7.1 + 7.2 均已完成）
+- 下一个任务：Phase 8 — Task 8.1（自动更新）
 
 ## 本次会话完成的工作
+
+### Task 7.2 — 引擎启动 + 插件管理
+- Application 层：PluginSummary / CompatibilityReport DTO、IPluginReadService、IPluginCommandService
+- PluginReadService：扫描已安装资产（排除 UE_ 前缀）、.uplugin JSON 元数据解析、兼容性检查
+- PluginCommandService：.uproject JSON 编辑（添加/移除 Plugins 数组条目）
+- PluginsViewModel：插件列表加载、兼容性检查命令、状态管理
+- PluginsPage.xaml：插件卡片列表、加载/错误/空状态
+- NavigationRoute + NavigationService + ShellPage 添加"插件管理"导航项
+- ShellViewModel 添加 NavigateToPlugins 命令
+- Infrastructure DI：PluginReadService + PluginCommandService（Singleton）
+- Presentation DI：PluginsViewModel（Transient）
+- 引擎启动功能已在 Task 7.1 LaunchEditorAsync 中实现
 
 ### Task 7.1 — 引擎版本管理
 - Application 层：EngineVersionSummary / InstalledEngineSummary DTO、IEngineVersionReadService、IEngineVersionCommandService
@@ -84,13 +96,15 @@
 
 ## 遗留问题
 - RepairAsync 目前仅检测损坏文件并记录日志，实际重新下载损坏文件需要 Downloads 模块配合（后续任务）
-- "下载完自动安装"开关功能需要 DownloadCompletedEvent → InstallAsync 联动，留待 Phase 7 整合
+- "下载完自动安装"开关功能需要 DownloadCompletedEvent → InstallAsync 联动，留待后续整合
 - Fab API 客户端目前无单元测试（HTTP 客户端需 mock HttpClient，留待集成测试或后续补充）
 
 ## 下一个任务的输入
-- Task 7.2：引擎启动 + 插件管理（查看 docs/ Phase 7 任务列表详情）
-- 引擎版本模块已完成，可作为启动/插件管理的基础
-- Phase 7 预期为系统整合/优化阶段
+- Phase 8：自动更新 + 打磨
+- Task 8.1：自动更新（IAppUpdateService、4h 后台检查、下载+校验、退出时替换）
+- Task 8.2：网络韧性增强（在线/离线检测、自动暂停/恢复、Retry-After、CDN 回退）
+- Task 8.3：性能优化（冷启动 <2s、内存优化）
+- Phase 7 引擎版本+插件管理模块已完成，可作为后续整合基础
 
 ## 关键约束提醒
 - 文件名英文，内容中文（代码除外，注释中文）

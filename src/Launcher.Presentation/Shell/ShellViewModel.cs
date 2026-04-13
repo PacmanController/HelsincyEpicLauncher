@@ -152,6 +152,9 @@ public partial class ShellViewModel : ObservableObject
     private Task NavigateToEngineVersions() => NavigateAsync(NavigationRoute.EngineVersions);
 
     [RelayCommand]
+    private Task NavigateToPlugins() => NavigateAsync(NavigationRoute.Plugins);
+
+    [RelayCommand]
     private Task NavigateToSettings() => NavigateAsync(NavigationRoute.Settings);
 
     [RelayCommand]

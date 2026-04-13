@@ -1,0 +1,164 @@
+<!-- Copyright (c) Helsincy. All rights reserved. -->
+<Page
+    x:Class="Launcher.Presentation.Modules.Plugins.PluginsPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:Launcher.Presentation.Modules.Plugins"
+    Background="Transparent"
+    Loaded="Page_Loaded">
+
+    <Grid Padding="32,24,32,16" RowSpacing="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <!-- 标题栏 -->
+        <Grid Grid.Row="0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+
+            <TextBlock
+                Text="插件管理"
+                FontSize="28"
+                FontWeight="SemiBold"
+                VerticalAlignment="Center"
+                Foreground="{ThemeResource TextFillColorPrimaryBrush}"/>
+
+            <Button
+                Grid.Column="1"
+                Content="刷新"
+                Click="Refresh_Click"
+                VerticalAlignment="Center"/>
+        </Grid>
+
+        <!-- 加载指示器 -->
+        <ProgressRing
+            Grid.Row="1"
+            IsActive="{x:Bind ViewModel.IsLoading, Mode=OneWay}"
+            Visibility="{x:Bind ViewModel.IsLoading, Mode=OneWay}"
+            Width="48" Height="48"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Center"/>
+
+        <!-- 错误提示 -->
+        <InfoBar
+            Grid.Row="1"
+            IsOpen="{x:Bind ViewModel.HasError, Mode=OneWay}"
+            Severity="Error"
+            Title="加载失败"
+            Message="{x:Bind ViewModel.ErrorMessage, Mode=OneWay}"
+            Margin="0,0,0,8"
+            VerticalAlignment="Top"/>
+
+        <!-- 插件列表 -->
+        <ScrollViewer
+            Grid.Row="1"
+            VerticalScrollBarVisibility="Auto"
+            Visibility="{x:Bind ViewModel.IsNotLoading, Mode=OneWay}">
+
+            <StackPanel Spacing="16">
+                <!-- 列表内容 -->
+                <ItemsRepeater ItemsSource="{x:Bind ViewModel.Plugins, Mode=OneWay}"
+                               Visibility="{x:Bind ViewModel.HasPlugins, Mode=OneWay}">
+                    <ItemsRepeater.Layout>
+                        <StackLayout Spacing="8"/>
+                    </ItemsRepeater.Layout>
+                    <ItemsRepeater.ItemTemplate>
+                        <DataTemplate x:DataType="local:PluginItemViewModel">
+                            <Grid
+                                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                                BorderThickness="1"
+                                CornerRadius="8"
+                                Padding="16,12"
+                                ColumnSpacing="12">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="48"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+
+                                <!-- 插件图标 -->
+                                <FontIcon
+                                    Grid.Column="0"
+                                    Glyph="&#xEA86;"
+                                    FontSize="28"
+                                    Foreground="{ThemeResource AccentFillColorDefaultBrush}"
+                                    HorizontalAlignment="Center"
+                                    VerticalAlignment="Center"/>
+
+                                <!-- 插件信息 -->
+                                <StackPanel Grid.Column="1" Spacing="2" VerticalAlignment="Center">
+                                    <TextBlock
+                                        Text="{x:Bind Name}"
+                                        FontSize="16"
+                                        FontWeight="SemiBold"/>
+                                    <StackPanel Orientation="Horizontal" Spacing="12">
+                                        <TextBlock
+                                            Text="{x:Bind Version}"
+                                            FontSize="12"
+                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                                        <TextBlock
+                                            Text="{x:Bind Author}"
+                                            FontSize="12"
+                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                                    </StackPanel>
+                                    <TextBlock
+                                        Text="{x:Bind InstallPath}"
+                                        FontSize="12"
+                                        Foreground="{ThemeResource TextFillColorTertiaryBrush}"
+                                        TextTrimming="CharacterEllipsis"/>
+                                    <StackPanel Orientation="Horizontal" Spacing="4">
+                                        <TextBlock
+                                            Text="兼容版本："
+                                            FontSize="12"
+                                            Foreground="{ThemeResource TextFillColorTertiaryBrush}"/>
+                                        <TextBlock
+                                            Text="{x:Bind SupportedVersionsText}"
+                                            FontSize="12"
+                                            Foreground="{ThemeResource TextFillColorTertiaryBrush}"/>
+                                    </StackPanel>
+                                </StackPanel>
+
+                                <!-- 兼容性标签 -->
+                                <StackPanel Grid.Column="2" VerticalAlignment="Center" Spacing="4">
+                                    <TextBlock
+                                        Text="{x:Bind CompatibilityText, Mode=OneWay}"
+                                        FontSize="12"
+                                        HorizontalAlignment="Center"
+                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                                </StackPanel>
+                            </Grid>
+                        </DataTemplate>
+                    </ItemsRepeater.ItemTemplate>
+                </ItemsRepeater>
+
+                <!-- 空状态 -->
+                <StackPanel
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    Spacing="8"
+                    Visibility="{x:Bind ViewModel.IsEmpty, Mode=OneWay}">
+                    <FontIcon
+                        Glyph="&#xEA86;"
+                        FontSize="48"
+                        Foreground="{ThemeResource TextFillColorTertiaryBrush}"
+                        HorizontalAlignment="Center"/>
+                    <TextBlock
+                        Text="暂无已安装插件"
+                        FontSize="16"
+                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                        HorizontalAlignment="Center"/>
+                    <TextBlock
+                        Text="在 Fab 资产库中浏览并安装插件"
+                        FontSize="14"
+                        Foreground="{ThemeResource TextFillColorTertiaryBrush}"
+                        HorizontalAlignment="Center"/>
+                </StackPanel>
+            </StackPanel>
+        </ScrollViewer>
+    </Grid>
+</Page>

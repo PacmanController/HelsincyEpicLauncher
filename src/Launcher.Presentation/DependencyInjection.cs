@@ -5,6 +5,7 @@ using Launcher.Presentation.Modules.Downloads;
 using Launcher.Presentation.Modules.EngineVersions;
 using Launcher.Presentation.Modules.FabLibrary;
 using Launcher.Presentation.Modules.Installations;
+using Launcher.Presentation.Modules.Plugins;
 using Launcher.Presentation.Modules.Settings;
 using Launcher.Presentation.Shell;
 using Launcher.Presentation.Shell.Navigation;
@@ -55,6 +56,9 @@ public static class DependencyInjection
 
         // EngineVersions ViewModel（Transient：每次导航刷新列表）
         services.AddTransient<EngineVersionsViewModel>();
+
+        // Plugins ViewModel（Transient：每次导航刷新列表）
+        services.AddTransient<PluginsViewModel>();
 
         return services;
     }
