@@ -15,4 +15,9 @@ public interface IDownloadTaskRepository
     Task<IReadOnlyList<DownloadTask>> GetHistoryAsync(int limit, CancellationToken ct = default);
     Task InsertAsync(DownloadTask task, CancellationToken ct = default);
     Task UpdateAsync(DownloadTask task, CancellationToken ct = default);
+
+    // Checkpoint
+    Task SaveCheckpointAsync(DownloadCheckpoint checkpoint, CancellationToken ct = default);
+    Task<DownloadCheckpoint?> GetCheckpointAsync(DownloadTaskId taskId, CancellationToken ct = default);
+    Task DeleteCheckpointAsync(DownloadTaskId taskId, CancellationToken ct = default);
 }

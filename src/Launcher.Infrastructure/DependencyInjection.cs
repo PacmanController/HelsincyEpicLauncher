@@ -38,6 +38,7 @@ public static class DependencyInjection
         services.AddSingleton<IMigration, Migration_002_Downloads>();
         services.AddSingleton<IMigration, Migration_003_Installations>();
         services.AddSingleton<IMigration, Migration_004_SettingsKv>();
+        services.AddSingleton<IMigration, Migration_005_DownloadCheckpoints>();
         services.AddSingleton<IDatabaseInitializer, MigrationRunner>();
 
         // 诊断
@@ -53,6 +54,7 @@ public static class DependencyInjection
         // 下载
         services.AddHttpClient("ChunkDownload");
         services.AddSingleton<ChunkDownloadClient>();
+        services.AddSingleton<IDownloadTaskRepository, DownloadTaskRepository>();
         services.AddSingleton<DownloadScheduler>();
         services.AddSingleton<DownloadOrchestrator>();
         services.AddSingleton<IDownloadCommandService, DownloadCommandService>();
