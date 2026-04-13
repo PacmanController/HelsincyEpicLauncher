@@ -50,6 +50,7 @@ public static class DependencyInjection
 
         // FabLibrary ViewModel（Transient：每次导航刷新列表）
         services.AddTransient<FabLibraryViewModel>();
+        services.AddTransient<FabAssetDetailViewModel>();
 
         return services;
     }

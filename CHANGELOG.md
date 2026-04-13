@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+### Task 6.3 - 搜索/筛选 + 详情页 (2026-04-13)
+- FabAssetDetailViewModel：资产详情加载、截图懒加载、下载按钮、返回导航、FormatSize 工具方法
+- ScreenshotItem：截图项 ObservableObject（URL + BitmapImage 懒加载）
+- FabAssetDetailPage.xaml：Hero 图 + 右侧信息面板（标题/作者/评分/价格/版本/大小/更新日期）、下载按钮（AccentButton）、描述区、截图横向画廊（ItemsRepeater 水平布局）、兼容引擎版本标签列表、标签胶囊、技术细节区
+- FabAssetDetailPage.xaml.cs：OnNavigatedTo 接收 assetId 导航参数、ViewModelLocator 模式
+- NavigationRoute 添加 FabAssetDetail 路由常量
+- NavigationService RouteMap 注册 FabAssetDetailPage
+- FabLibraryPage 卡片 Tapped 事件导航到详情页（通过 Tag 传递 AssetId）
+- Presentation DI 注册 FabAssetDetailViewModel（Transient）
+- dotnet build 9 个项目零错误零警告，dotnet test 158/158 通过
+
 ### Task 6.2 - Fab 资产浏览页 (2026-04-13)
 - IThumbnailCacheService 接口（Application 层契约：URL → 本地缓存路径，LRU 淘汰）
 - ThumbnailCacheService 实现：SHA-256 URL 哈希文件名、ConcurrentDictionary 内存索引、并发下载锁防重复、7 天过期 + 2000 条 LRU 淘汰、原子临时文件写入

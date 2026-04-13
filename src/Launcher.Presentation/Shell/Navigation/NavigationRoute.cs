@@ -8,6 +8,7 @@ namespace Launcher.Presentation.Shell.Navigation;
 public static class NavigationRoute
 {
     public const string FabLibrary = "FabLibrary";
+    public const string FabAssetDetail = "FabAssetDetail";
     public const string Downloads = "Downloads";
     public const string Installations = "Installations";
     public const string EngineVersions = "EngineVersions";

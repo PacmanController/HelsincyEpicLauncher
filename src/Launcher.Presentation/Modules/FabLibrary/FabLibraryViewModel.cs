@@ -225,6 +225,7 @@ public partial class FabLibraryViewModel : ObservableObject, IDisposable
         if (_disposed) return;
         _disposed = true;
         _searchCts.Dispose();
+        GC.SuppressFinalize(this);
     }
 }
 

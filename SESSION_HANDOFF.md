@@ -2,13 +2,13 @@
 
 ## 最后更新
 - 时间：2026-04-13
-- 完成任务：Task 6.2（Fab 资产浏览页）
+- 完成任务：Task 6.3（搜索/筛选 + 详情页）
 
 ## 当前项目状态
 - 最后成功编译：是（dotnet build 9 个项目零错误零警告）
 - 最后测试结果：全部通过（158/158）
-- 当前 Phase：Phase 6 进行中（Task 6.1 + 6.2 完成，下一步 Task 6.3）
-- 下一个任务：Task 6.3（搜索/筛选 + 详情页）
+- 当前 Phase：Phase 6 完成（Task 6.1 + 6.2 + 6.3 全部完成）
+- 下一个任务：Task 7.1（需确认 Phase 7 内容）
 
 ## 本次会话完成的工作
 
@@ -27,6 +27,13 @@
 - FabAssetCardViewModel：缩略图懒加载（ElementPrepared 触发）、价格/评分格式化
 - FabLibraryPage.xaml：UniformGridLayout 虚拟化网格、搜索栏+分类+排序筛选、骨架屏、空状态、无限滚动
 - DI 注册：HttpClient("ThumbnailDownload") + IThumbnailCacheService + FabLibraryViewModel
+
+### Task 6.3 — 搜索/筛选 + 详情页
+- FabAssetDetailViewModel：详情加载、截图懒加载、下载按钮、返回导航
+- FabAssetDetailPage.xaml：Hero 图 + 信息面板、描述、截图画廊、引擎版本、标签、技术细节
+- NavigationRoute + NavigationService 注册 FabAssetDetail
+- FabLibraryPage 卡片 Tapped 导航到详情页
+- DI 注册 FabAssetDetailViewModel
 
 ### Task 4.1 — DownloadTask 领域实体 + 状态机
 - DownloadState（13 状态）、DownloadStateMachine（17 转换）、DownloadTask 实体、ChunkInfo/DownloadCheckpoint 值对象
@@ -70,13 +77,8 @@
 - Fab API 客户端目前无单元测试（HTTP 客户端需 mock HttpClient，留待集成测试或后续补充）
 
 ## 下一个任务的输入
-- 读取文档：docs/06-ModuleDefinitions/FabLibrary.md
-- Task 6.3：搜索/筛选 + 详情页
-  - SearchBox 搜索防抖（已在 6.2 ViewModel 中实现 300ms debounce）
-  - 分类/排序筛选（已有 ComboBox UI，完善筛选逻辑）
-  - FabAssetDetailPage.xaml + FabAssetDetailViewModel
-  - 详情页：描述、截图画廊、技术细节、兼容引擎版本、下载按钮
-  - 卡片点击导航到详情页
+- Phase 6 已完成，查看 docs/ 确认 Phase 7 任务列表
+- Phase 7 预期为系统整合/优化阶段
 
 ## 关键约束提醒
 - 文件名英文，内容中文（代码除外，注释中文）

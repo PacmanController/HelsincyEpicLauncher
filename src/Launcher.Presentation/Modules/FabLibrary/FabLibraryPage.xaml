@@ -166,7 +166,9 @@
                                 CornerRadius="8"
                                 BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                                 BorderThickness="1"
-                                Padding="0">
+                                Padding="0"
+                                Tag="{x:Bind AssetId}"
+                                Tapped="AssetCard_Tapped">
                                 <Grid.RowDefinitions>
                                     <RowDefinition Height="160" />
                                     <RowDefinition Height="*" />

@@ -28,6 +28,7 @@ public sealed class NavigationService : INavigationService
     private static readonly Dictionary<string, Type> RouteMap = new()
     {
         [NavigationRoute.FabLibrary] = typeof(FabLibraryPage),
+        [NavigationRoute.FabAssetDetail] = typeof(FabAssetDetailPage),
         [NavigationRoute.Downloads] = typeof(DownloadsPage),
         [NavigationRoute.Installations] = typeof(InstallationsPage),
         [NavigationRoute.EngineVersions] = typeof(EngineVersionsPage),

@@ -2,9 +2,11 @@
 
 using Launcher.Application.Modules.FabLibrary.Contracts;
 using Launcher.Presentation.Shell;
+using Launcher.Presentation.Shell.Navigation;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Data;
+using Microsoft.UI.Xaml.Input;
 
 namespace Launcher.Presentation.Modules.FabLibrary;
 
@@ -68,11 +70,23 @@ public sealed partial class FabLibraryPage : Page
     }
 
     /// <summary>元素进入虚拟化视口时触发缩略图懒加载</summary>
+#pragma warning disable CA1822
     private async void AssetGrid_ElementPrepared(ItemsRepeater sender, ItemsRepeaterElementPreparedEventArgs args)
+#pragma warning restore CA1822
     {
         if (args.Element is FrameworkElement fe && fe.DataContext is FabAssetCardViewModel card)
         {
             await card.LoadThumbnailAsync();
+        }
+    }
+
+    /// <summary>卡片点击导航到详情页</summary>
+    private async void AssetCard_Tapped(object sender, TappedRoutedEventArgs e)
+    {
+        if (sender is FrameworkElement fe && fe.Tag is string assetId)
+        {
+            var nav = ViewModelLocator.Resolve<NavigationService>();
+            await nav.NavigateAsync(NavigationRoute.FabAssetDetail, assetId);
         }
     }
 }
