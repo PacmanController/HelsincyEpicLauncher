@@ -20,7 +20,9 @@ public sealed class InstallStateMachineTests
     [InlineData(InstallState.Verifying, InstallState.Failed)]
     [InlineData(InstallState.NeedsRepair, InstallState.Repairing)]
     [InlineData(InstallState.NeedsRepair, InstallState.Uninstalling)]
+    [InlineData(InstallState.Installed, InstallState.Repairing)]
     [InlineData(InstallState.Repairing, InstallState.Installed)]
+    [InlineData(InstallState.Repairing, InstallState.NeedsRepair)]
     [InlineData(InstallState.Repairing, InstallState.Failed)]
     [InlineData(InstallState.Uninstalling, InstallState.NotInstalled)]
     [InlineData(InstallState.Uninstalling, InstallState.Failed)]
@@ -43,7 +45,6 @@ public sealed class InstallStateMachineTests
     [InlineData(InstallState.Installed, InstallState.Installing)]
     [InlineData(InstallState.Verifying, InstallState.Installing)]
     [InlineData(InstallState.NeedsRepair, InstallState.Installed)]
-    [InlineData(InstallState.Repairing, InstallState.NeedsRepair)]
     public void InvalidTransition_Fails(InstallState from, InstallState to)
     {
         var sm = new InstallStateMachine(from);

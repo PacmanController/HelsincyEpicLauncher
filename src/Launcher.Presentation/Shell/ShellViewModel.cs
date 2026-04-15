@@ -4,7 +4,9 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Launcher.Application.Modules.Auth.Contracts;
 using Launcher.Application.Modules.Downloads.Contracts;
+using Launcher.Application.Modules.Updates.Contracts;
 using Launcher.Presentation.Shell.Navigation;
+using Microsoft.UI.Xaml;
 using Serilog;
 
 namespace Launcher.Presentation.Shell;
@@ -18,6 +20,7 @@ public partial class ShellViewModel : ObservableObject
     private readonly INavigationService _navigationService;
     private readonly IAuthService _authService;
     private readonly IDownloadRuntimeStore _runtimeStore;
+    private readonly IAppUpdateService _appUpdateService;
     private readonly Microsoft.UI.Dispatching.DispatcherQueue _dispatcherQueue;
 
     // === 导航状态 ===
@@ -42,11 +45,36 @@ public partial class ShellViewModel : ObservableObject
     [ObservableProperty] private string _downloadSpeedText = string.Empty;
     [ObservableProperty] private bool _hasActiveDownloads;
 
-    public ShellViewModel(INavigationService navigationService, IAuthService authService, IDownloadRuntimeStore runtimeStore)
+    // === 更新状态 ===
+    [ObservableProperty] private bool _hasPendingUpdate;
+    [ObservableProperty] private string _pendingUpdateVersion = string.Empty;
+    [ObservableProperty] private bool _pendingUpdateIsMandatory;
+    [ObservableProperty] private bool _isDownloadingUpdate;
+    [ObservableProperty] private double _updateDownloadProgress;
+
+    /// <summary>非下载中状态（给按鈕的 IsEnabled 绑定）</summary>
+    public bool IsNotDownloadingUpdate => !IsDownloadingUpdate;
+
+    partial void OnIsDownloadingUpdateChanged(bool value)
+        => OnPropertyChanged(nameof(IsNotDownloadingUpdate));
+
+    /// <summary>是否可以跳过更新（非强制更新 = 可跳过）</summary>
+    public Visibility CanSkipUpdate
+        => PendingUpdateIsMandatory ? Visibility.Collapsed : Visibility.Visible;
+
+    partial void OnPendingUpdateIsMandatoryChanged(bool value)
+        => OnPropertyChanged(nameof(CanSkipUpdate));
+
+    public ShellViewModel(
+        INavigationService navigationService,
+        IAuthService authService,
+        IDownloadRuntimeStore runtimeStore,
+        IAppUpdateService appUpdateService)
     {
         _navigationService = navigationService;
         _authService = authService;
         _runtimeStore = runtimeStore;
+        _appUpdateService = appUpdateService;
         _dispatcherQueue = Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread();
 
         // 监听会话过期事件
@@ -56,6 +84,9 @@ public partial class ShellViewModel : ObservableObject
         _runtimeStore.SnapshotChanged += OnDownloadSnapshotChanged;
         _runtimeStore.DownloadCompleted += _ => RefreshDownloadStatus();
         _runtimeStore.DownloadFailed += _ => RefreshDownloadStatus();
+
+        // 监听更新通知（仅依赖 Application 廷约接口，不耦合 Background 层）
+        _appUpdateService.UpdateAvailable += OnUpdateAvailable;
 
         Logger.Debug("ShellViewModel 已创建");
     }
@@ -137,6 +168,67 @@ public partial class ShellViewModel : ObservableObject
     {
         ClearUserInfo();
         Logger.Warning("会话已过期 | 原因={Reason}", evt.Reason);
+    }
+
+    private void OnUpdateAvailable(UpdateAvailableEvent evt)
+    {
+        _dispatcherQueue.TryEnqueue(() =>
+        {
+            PendingUpdateVersion = evt.Version;
+            PendingUpdateIsMandatory = evt.IsMandatory;
+            HasPendingUpdate = true;
+            Logger.Information("UI 收到更新通知 | 版本={Version}", evt.Version);
+        });
+    }
+
+    /// <summary>立即下载并安装可用更新</summary>
+    [RelayCommand]
+    private async Task DownloadAndApplyUpdateAsync()
+    {
+        if (!HasPendingUpdate || IsDownloadingUpdate) return;
+        IsDownloadingUpdate = true;
+        try
+        {
+            // 重新检查以获取完整的 UpdateInfo（运行时内存犴策策略）
+            var checkResult = await _appUpdateService.CheckForUpdateAsync(CancellationToken.None);
+            if (!checkResult.IsSuccess || checkResult.Value is null)
+            {
+                Logger.Warning("更新信息已无法获取，取消下载");
+                IsDownloadingUpdate = false;
+                return;
+            }
+
+            var progress = new Progress<double>(p =>
+                _dispatcherQueue.TryEnqueue(() => UpdateDownloadProgress = p));
+
+            var dlResult = await _appUpdateService.DownloadUpdateAsync(
+                checkResult.Value, progress, CancellationToken.None);
+
+            if (!dlResult.IsSuccess)
+            {
+                Logger.Warning("更新下载失败 | Error={Error}", dlResult.Error?.UserMessage);
+                IsDownloadingUpdate = false;
+                return;
+            }
+
+            // 下载完成后应用更新（无法取消，会退出应用）
+            await _appUpdateService.ApplyUpdateAsync(CancellationToken.None);
+        }
+        catch (Exception ex)
+        {
+            Logger.Error(ex, "应用更新时发生异常");
+            IsDownloadingUpdate = false;
+        }
+    }
+
+    /// <summary>跳过当前待安装版本</summary>
+    [RelayCommand]
+    private async Task SkipCurrentUpdateAsync()
+    {
+        if (!HasPendingUpdate) return;
+        await _appUpdateService.SkipVersionAsync(PendingUpdateVersion, CancellationToken.None);
+        HasPendingUpdate = false;
+        Logger.Information("用户跳过版本 | 版本={Version}", PendingUpdateVersion);
     }
 
     [RelayCommand]

@@ -22,5 +22,6 @@
     <ProjectReference Include="..\..\src\Launcher.Application\Launcher.Application.csproj" />
     <ProjectReference Include="..\..\src\Launcher.Infrastructure\Launcher.Infrastructure.csproj" />
     <ProjectReference Include="..\..\src\Launcher.Presentation\Launcher.Presentation.csproj" />
+    <ProjectReference Include="..\..\src\Launcher.Background\Launcher.Background.csproj" />
   </ItemGroup>
 </Project>

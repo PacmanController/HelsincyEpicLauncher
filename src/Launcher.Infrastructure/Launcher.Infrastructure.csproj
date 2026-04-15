@@ -1,6 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
     <InternalsVisibleTo Include="Launcher.Tests.Integration" />
+    <InternalsVisibleTo Include="Launcher.Tests.Unit" />
   </ItemGroup>
 
   <ItemGroup>

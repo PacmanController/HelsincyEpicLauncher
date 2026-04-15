@@ -8,6 +8,7 @@ using Launcher.Application.Modules.FabLibrary.Contracts;
 using Launcher.Application.Modules.Installations.Contracts;
 using Launcher.Application.Modules.Plugins.Contracts;
 using Launcher.Application.Modules.Settings.Contracts;
+using Launcher.Application.Modules.Updates.Contracts;
 using Launcher.Application.Persistence;
 using Launcher.Infrastructure.Auth;
 using Launcher.Infrastructure.Configuration;
@@ -20,6 +21,7 @@ using Launcher.Infrastructure.Plugins;
 using Launcher.Infrastructure.Persistence.Sqlite;
 using Launcher.Infrastructure.Persistence.Sqlite.Migrations;
 using Launcher.Infrastructure.Settings;
+using Launcher.Infrastructure.Updates;
 using Launcher.Shared.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -75,6 +77,8 @@ public static class DependencyInjection
         services.AddSingleton<InstallWorker>();
         services.AddSingleton<IHashingService, HashingService>();
         services.AddSingleton<IIntegrityVerifier, IntegrityVerifier>();
+        services.AddSingleton<IRepairDownloadUrlProvider, RepairDownloadUrlProvider>();
+        services.AddSingleton<RepairFileDownloader>();
         services.AddSingleton<IInstallCommandService, InstallCommandService>();
         services.AddSingleton<IInstallReadService, InstallReadService>();
 
@@ -107,6 +111,17 @@ public static class DependencyInjection
         // 插件管理
         services.AddSingleton<IPluginReadService, PluginReadService>();
         services.AddSingleton<IPluginCommandService, PluginCommandService>();
+
+        // 自动更新
+        services.AddHttpClient("UpdateApi", client =>
+        {
+            client.BaseAddress = new Uri("https://api.github.com");
+            client.DefaultRequestHeaders.Add("Accept", "application/vnd.github+json");
+            client.DefaultRequestHeaders.Add("User-Agent", "HelsincyEpicLauncher");
+        });
+        services.AddSingleton<AppUpdateService>();
+        services.AddSingleton<IAppUpdateService>(sp => sp.GetRequiredService<AppUpdateService>());
+        services.AddSingleton<IInternalUpdateNotifier>(sp => sp.GetRequiredService<AppUpdateService>());
 
         return services;
     }

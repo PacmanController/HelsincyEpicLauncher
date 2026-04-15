@@ -53,6 +53,18 @@ public sealed class VerificationProgress
     public required string CurrentFile { get; init; }
 }
 
+/// <summary>
+/// 修复结果
+/// </summary>
+public sealed class RepairFileResult
+{
+    /// <summary>成功修复的文件数</summary>
+    public int RepairedCount { get; init; }
+
+    /// <summary>修复失败的文件列表</summary>
+    public IReadOnlyList<string> FailedFiles { get; init; } = [];
+}
+
 // ===== 事件 =====
 
 public sealed record InstallationCompletedEvent(string AssetId, string InstallPath);

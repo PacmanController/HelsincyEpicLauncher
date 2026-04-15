@@ -251,6 +251,14 @@ public partial class App : Microsoft.UI.Xaml.Application
         // 启动后台服务：Token 自动刷新
         var tokenRefresh = Services.GetRequiredService<Launcher.Background.Auth.TokenRefreshBackgroundService>();
         tokenRefresh.Start();
+
+        // 启动后台服务：下载完成后自动安装
+        var autoInstall = Services.GetRequiredService<Launcher.Background.Installations.AutoInstallWorker>();
+        autoInstall.Start();
+
+        // 启动后台服务：自动更新检查（延迟 5 分钟首次检查，每 24 小时一次）
+        var updateWorker = Services.GetRequiredService<Launcher.Background.Updates.AppUpdateWorker>();
+        updateWorker.Start();
     }
 
     /// <summary>

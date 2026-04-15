@@ -20,8 +20,9 @@ public sealed class InstallStateMachine : StateMachine<InstallState>
         DefineTransition(InstallState.Installing, InstallState.Installed);
         DefineTransition(InstallState.Installing, InstallState.Failed);
 
-        // Installed → Verifying | Uninstalling
+        // Installed → Verifying | Repairing | Uninstalling
         DefineTransition(InstallState.Installed, InstallState.Verifying);
+        DefineTransition(InstallState.Installed, InstallState.Repairing);
         DefineTransition(InstallState.Installed, InstallState.Uninstalling);
 
         // Verifying → Installed | NeedsRepair | Failed
@@ -33,8 +34,9 @@ public sealed class InstallStateMachine : StateMachine<InstallState>
         DefineTransition(InstallState.NeedsRepair, InstallState.Repairing);
         DefineTransition(InstallState.NeedsRepair, InstallState.Uninstalling);
 
-        // Repairing → Installed | Failed
+        // Repairing → Installed | NeedsRepair | Failed
         DefineTransition(InstallState.Repairing, InstallState.Installed);
+        DefineTransition(InstallState.Repairing, InstallState.NeedsRepair);
         DefineTransition(InstallState.Repairing, InstallState.Failed);
 
         // Uninstalling → NotInstalled | Failed

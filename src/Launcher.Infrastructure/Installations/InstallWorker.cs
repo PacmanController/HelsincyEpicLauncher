@@ -29,7 +29,8 @@ public sealed class InstallWorker
         Installation installation,
         string sourcePath,
         IProgress<InstallProgress>? progress,
-        CancellationToken ct)
+        CancellationToken ct,
+        string? downloadUrl = null)
     {
         _logger.Information("开始安装 {AssetId} → {InstallPath}", installation.AssetId, installation.InstallPath);
 
@@ -82,6 +83,7 @@ public sealed class InstallWorker
                 Version = installation.Version,
                 Files = files,
                 TotalSize = totalSize,
+                DownloadUrl = downloadUrl,
             };
             await _repository.SaveManifestAsync(installation.AssetId, manifest, ct);
 

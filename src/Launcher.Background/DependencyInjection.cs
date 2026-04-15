@@ -1,6 +1,8 @@
 // Copyright (c) Helsincy. All rights reserved.
 
 using Launcher.Background.Auth;
+using Launcher.Background.Installations;
+using Launcher.Background.Updates;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Launcher.Background;
@@ -14,6 +16,12 @@ public static class DependencyInjection
     {
         // Token 自动刷新
         services.AddSingleton<TokenRefreshBackgroundService>();
+
+        // 下载完成后自动安装
+        services.AddSingleton<AutoInstallWorker>();
+
+        // 自动更新检查
+        services.AddSingleton<AppUpdateWorker>();
 
         return services;
     }

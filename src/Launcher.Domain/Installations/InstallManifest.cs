@@ -11,6 +11,9 @@ public sealed class InstallManifest
     public required string Version { get; init; }
     public IReadOnlyList<ManifestFileEntry> Files { get; init; } = [];
     public long TotalSize { get; init; }
+
+    /// <summary>原始下载 URL（参考/诊断用途，实际修复通过 IRepairDownloadUrlProvider 获取新鲜链接）</summary>
+    public string? DownloadUrl { get; init; }
 }
 
 /// <summary>

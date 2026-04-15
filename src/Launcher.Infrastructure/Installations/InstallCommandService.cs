@@ -15,6 +15,8 @@ public sealed class InstallCommandService : IInstallCommandService
     private readonly IInstallationRepository _repository;
     private readonly InstallWorker _worker;
     private readonly IIntegrityVerifier _verifier;
+    private readonly IRepairDownloadUrlProvider _urlProvider;
+    private readonly RepairFileDownloader _repairDownloader;
     private readonly ILogger _logger = Log.ForContext<InstallCommandService>();
 
     /// <summary>安装完成事件</summary>
@@ -29,11 +31,18 @@ public sealed class InstallCommandService : IInstallCommandService
     /// <summary>修复完成事件</summary>
     public event Action<RepairCompletedEvent>? RepairCompleted;
 
-    public InstallCommandService(IInstallationRepository repository, InstallWorker worker, IIntegrityVerifier verifier)
+    public InstallCommandService(
+        IInstallationRepository repository,
+        InstallWorker worker,
+        IIntegrityVerifier verifier,
+        IRepairDownloadUrlProvider urlProvider,
+        RepairFileDownloader repairDownloader)
     {
         _repository = repository;
         _worker = worker;
         _verifier = verifier;
+        _urlProvider = urlProvider;
+        _repairDownloader = repairDownloader;
     }
 
     public async Task<Result> InstallAsync(InstallRequest request, CancellationToken ct)
@@ -157,6 +166,7 @@ public sealed class InstallCommandService : IInstallCommandService
     {
         _logger.Information("开始修复 {AssetId}", assetId);
 
+        // 1. 查找安装记录
         var installation = await _repository.GetByAssetIdAsync(assetId, ct);
         if (installation is null)
         {
@@ -176,7 +186,7 @@ public sealed class InstallCommandService : IInstallCommandService
 
         await _repository.UpdateAsync(installation, ct);
 
-        // 读取 Manifest
+        // 2. 读取 Manifest
         var manifest = await _repository.GetManifestAsync(assetId, ct);
         if (manifest is null)
         {
@@ -193,7 +203,7 @@ public sealed class InstallCommandService : IInstallCommandService
             });
         }
 
-        // 执行完整性校验
+        // 3. 执行完整性校验
         var verifyResult = await _verifier.VerifyInstallationAsync(installation.InstallPath, manifest, null, ct);
         if (!verifyResult.IsSuccess)
         {
@@ -215,22 +225,59 @@ public sealed class InstallCommandService : IInstallCommandService
             return Result.Ok();
         }
 
-        // 有损坏/缺失文件 — 记录并标记修复完成
-        // 注意：实际重新下载损坏文件需要 Downloads 模块配合，当前记录日志
-        var damagedCount = report.MissingFiles.Count + report.CorruptedFiles.Count;
+        // 4. 获取新鲜下载 URL
+        var damagedFiles = report.MissingFiles.Concat(report.CorruptedFiles).ToList();
         _logger.Warning("发现 {Count} 个损坏/缺失文件 {AssetId}: Missing={Missing}, Corrupted={Corrupted}",
-            damagedCount, assetId, report.MissingFiles.Count, report.CorruptedFiles.Count);
+            damagedFiles.Count, assetId, report.MissingFiles.Count, report.CorruptedFiles.Count);
 
-        // TODO: 重新下载损坏的文件（需要 Downloads 模块的 ChunkDownloader 配合）
-        // 当前标记为已修复（在后续 Task 中完善 re-download 逻辑）
+        var urlResult = await _urlProvider.GetDownloadInfoAsync(assetId, ct);
+        if (!urlResult.IsSuccess)
+        {
+            installation.TransitionTo(InstallState.NeedsRepair);
+            installation.SetError("无法获取下载链接");
+            await _repository.UpdateAsync(installation, ct);
+            return Result.Fail(urlResult.Error!);
+        }
 
+        // 5. 下载并替换损坏文件
+        var repairResult = await _repairDownloader.RepairFilesAsync(
+            urlResult.Value!.DownloadUrl, installation.InstallPath, damagedFiles, manifest, ct);
+
+        if (!repairResult.IsSuccess)
+        {
+            installation.TransitionTo(InstallState.NeedsRepair);
+            installation.SetError(repairResult.Error?.TechnicalMessage ?? "修复下载失败");
+            await _repository.UpdateAsync(installation, ct);
+            return Result.Fail(repairResult.Error!);
+        }
+
+        // 6. 二次校验
+        var reVerifyResult = await _verifier.VerifyInstallationAsync(installation.InstallPath, manifest, null, ct);
+        if (!reVerifyResult.IsSuccess || !reVerifyResult.Value!.IsValid)
+        {
+            var stillDamaged = (reVerifyResult.Value?.MissingFiles.Count ?? 0)
+                             + (reVerifyResult.Value?.CorruptedFiles.Count ?? 0);
+            installation.TransitionTo(InstallState.NeedsRepair);
+            installation.SetError($"二次校验仍有 {stillDamaged} 个文件异常");
+            await _repository.UpdateAsync(installation, ct);
+            return Result.Fail(new Error
+            {
+                Code = "REPAIR_INCOMPLETE",
+                UserMessage = $"修复未完全成功，仍有 {stillDamaged} 个文件异常",
+                TechnicalMessage = $"Re-verification failed: {stillDamaged} files still damaged for {assetId}",
+                CanRetry = true,
+                Severity = ErrorSeverity.Error,
+            });
+        }
+
+        // 7. 修复成功
         installation.TransitionTo(InstallState.Installed);
         installation.ClearError();
         await _repository.UpdateAsync(installation, ct);
 
-        RepairCompleted?.Invoke(new RepairCompletedEvent(assetId, damagedCount));
-
-        _logger.Information("修复完成 {AssetId}（桩方法）", assetId);
+        var repairedCount = repairResult.Value!.RepairedCount;
+        RepairCompleted?.Invoke(new RepairCompletedEvent(assetId, repairedCount));
+        _logger.Information("修复完成 {AssetId}, 修复 {Count} 个文件", assetId, repairedCount);
         return Result.Ok();
     }
 }

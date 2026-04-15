@@ -2,6 +2,32 @@
 
 ## [Unreleased]
 
+### Task 8.1 - 自动更新 (2026-04-16)
+- Application 层契约：UpdateInfo DTO（Version/DownloadUrl/DownloadSize/ReleaseNotes/ReleaseDate/IsMandatory）、UpdateAvailableEvent record、IAppUpdateService（CheckForUpdate/DownloadUpdate/ApplyUpdate/SkipVersion）、IInternalUpdateNotifier（避免 Background→Infrastructure 跨层耦合）
+- AppUpdateService：GitHub Releases API 检查最新版本（Bearer + User-Agent + snake_case JSON）、版本比较、跳过版本本地持久化（skipped_versions.json）、下载包流式写入（带进度）、PowerShell 更新脚本生成（等待进程退出+解压+重启）、Environment.Exit(0) 退出（不引用 WinUI API）
+- AppUpdateWorker：24h 定时检查、5min 启动延迟、async void 回调内部 try/catch、通过 IInternalUpdateNotifier 触发事件（零跨层耦合）
+- ShellViewModel：订阅 IAppUpdateService.UpdateAvailable 事件（仅依赖 Application 契约）、HasPendingUpdate/PendingUpdateVersion/IsNotDownloadingUpdate/CanSkipUpdate 计算属性、DownloadAndApplyUpdateCommand/SkipCurrentUpdateCommand
+- ShellPage.xaml：InfoBar 更新通知条（立即更新 + 跳过此版本按钮），强制更新时隐藏跳过按钮
+- DI 注册：Infrastructure（UpdateApi HttpClient + AppUpdateService Singleton + IInternalUpdateNotifier）、Background（AppUpdateWorker Singleton）
+- App.xaml.cs 启动时调用 AppUpdateWorker.Start()
+- 遵循 AI-01（单模块原则）、AI-03（不跨模块加依赖）、AI-05（声明影响面）
+- dotnet build 9 项目零错误零警告，dotnet test 176/176 通过
+
+### 遗留问题修复 (2026-04-15)
+- RepairAsync 完整实现：IRepairDownloadUrlProvider 获取新鲜 CDN URL → RepairFileDownloader 下载资产包 → 仅解压损坏文件 → SHA-256 校验 → 原子替换 → 二次校验 → 失败回退 NeedsRepair
+- RepairDownloadUrlProvider：依赖倒置，接口在 Installations.Contracts，实现在 Infrastructure（调用 FabApiClient），零循环依赖
+- RepairFileDownloader：HTTP 下载 + ZIP 局部解压 + Zip Slip 防护 + 哈希校验 + 原子文件替换 + 临时文件清理
+- InstallManifest 新增可选 DownloadUrl 字段（参考/诊断用途）
+- InstallWorker.ExecuteAsync 接受可选 downloadUrl 参数并保存到 Manifest
+- InstallStateMachine 新增 Installed→Repairing 和 Repairing→NeedsRepair 转换
+- AutoInstallWorker：监听 DownloadCompletedEvent → 检查 AutoInstall 设置 → 自动调用 InstallAsync，纯事件驱动零耦合
+- Background DI 注册 AutoInstallWorker，App.xaml.cs 启动
+- FabApiClientTests（8 个测试）：MockHttpMessageHandler + NSubstitute mock IAuthService
+- RepairAsyncTests（6 个测试）：覆盖全部修复场景
+- AutoInstallWorkerTests（3 个测试）：开关开启/关闭/安装失败不抛异常
+- InternalsVisibleTo("Launcher.Tests.Unit") 添加到 Infrastructure
+- dotnet build 零错误零警告，dotnet test 169/169 通过
+
 ### Task 7.2 - 引擎启动 + 插件管理 (2026-04-13)
 - Application 层契约：PluginSummary / CompatibilityReport DTO、IPluginReadService（已安装插件查询/兼容性检查）、IPluginCommandService（添加/移除项目插件）
 - PluginReadService：扫描已安装资产（排除 UE_ 前缀）、解析 .uplugin JSON 元数据（FriendlyName/VersionName/CreatedBy/EngineVersion）、兼容性检查（SupportedEngineVersions 匹配）

@@ -1,16 +1,38 @@
 # 会话交接文档
 
 ## 最后更新
-- 时间：2026-04-13
-- 完成任务：Task 7.2（引擎启动 + 插件管理）— Phase 7 全部完成
+- 时间：2026-04-16
+- 完成任务：Task 8.1（自动更新）
 
 ## 当前项目状态
 - 最后成功编译：是（dotnet build 9 个项目零错误零警告）
-- 最后测试结果：全部通过（158/158）
-- 当前 Phase：Phase 7 已完成（Task 7.1 + 7.2 均已完成）
-- 下一个任务：Phase 8 — Task 8.1（自动更新）
+- 最后测试结果：全部通过（176/176）
+- 当前 Phase：Phase 8 进行中（Task 8.1 完成）
+- 下一个任务：Task 8.2（网络韧性增强）
 
 ## 本次会话完成的工作
+
+### 遗留问题 1 — RepairAsync 完整修复
+- IRepairDownloadUrlProvider 接口（Installations.Contracts）+ RepairDownloadInfo DTO
+- RepairDownloadUrlProvider 实现（Infrastructure，调用 FabApiClient 获取新鲜 CDN URL）
+- RepairFileDownloader：HTTP 下载完整包 → ZIP 局部解压 → SHA-256 校验 → 原子替换 → 临时文件清理
+- InstallManifest 新增 DownloadUrl 可选字段
+- InstallWorker.ExecuteAsync 接受 downloadUrl 参数
+- RepairAsync 完整流程：校验 → 获取 URL → 下载修复 → 二次校验 → 成功/NeedsRepair
+- InstallStateMachine 新增 Installed→Repairing 和 Repairing→NeedsRepair 转换
+- DI 注册 IRepairDownloadUrlProvider + RepairFileDownloader
+
+### 遗留问题 2 — 下载完成后自动安装
+- AutoInstallWorker（Background 层）：订阅 DownloadCompleted → 检查 AutoInstall → InstallAsync
+- Background DI 注册 + App.xaml.cs 启动
+- 纯事件驱动，通过 Contracts 接口通信，零模块内部耦合
+
+### 遗留问题 3 — FabApiClient 单元测试
+- InternalsVisibleTo("Launcher.Tests.Unit") 添加到 Infrastructure
+- MockHttpMessageHandler 测试辅助类
+- FabApiClientTests：8 个测试覆盖正常/401/500 重试/Token 失败/取消等场景
+- RepairAsyncTests：6 个测试覆盖全部修复场景
+- AutoInstallWorkerTests：3 个测试覆盖开关开启/关闭/安装失败
 
 ### Task 7.2 — 引擎启动 + 插件管理
 - Application 层：PluginSummary / CompatibilityReport DTO、IPluginReadService、IPluginCommandService
