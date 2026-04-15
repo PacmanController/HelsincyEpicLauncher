@@ -64,6 +64,10 @@
             <TextBlock Text="{x:Bind ViewModel.ErrorMessage, Mode=OneWay}"
                        Style="{StaticResource BodyTextBlockStyle}"
                        Foreground="{ThemeResource TextFillColorSecondaryBrush}" HorizontalAlignment="Center" />
+            <Button Content="重试"
+                    HorizontalAlignment="Center"
+                    Command="{x:Bind ViewModel.LoadCommand}"
+                    CommandParameter="{x:Bind ViewModel.AssetId, Mode=OneWay}" />
         </StackPanel>
 
         <!-- ====== 详情内容 ====== -->

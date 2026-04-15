@@ -4,6 +4,7 @@ using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Launcher.Application.Modules.FabLibrary.Contracts;
+using Launcher.Application.Modules.Network.Contracts;
 using Launcher.Shared;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml.Media.Imaging;
@@ -20,6 +21,7 @@ public partial class FabLibraryViewModel : ObservableObject, IDisposable
 
     private readonly IFabCatalogReadService _catalogService;
     private readonly IThumbnailCacheService _thumbnailCache;
+    private readonly INetworkMonitor _networkMonitor;
     private readonly DispatcherQueue _dispatcherQueue;
     private CancellationTokenSource _searchCts = new();
     private bool _disposed;
@@ -38,6 +40,9 @@ public partial class FabLibraryViewModel : ObservableObject, IDisposable
     [ObservableProperty] private bool _isLoadingMore;
     [ObservableProperty] private bool _hasAssets;
     [ObservableProperty] private bool _isEmpty;
+    [ObservableProperty] private bool _hasError;
+    [ObservableProperty] private string _errorMessage = string.Empty;
+    [ObservableProperty] private bool _isOffline;
     [ObservableProperty] private string _searchKeyword = string.Empty;
     [ObservableProperty] private string _selectedCategory = string.Empty;
     [ObservableProperty] private FabSortOrder _selectedSortOrder = FabSortOrder.Relevance;
@@ -51,11 +56,15 @@ public partial class FabLibraryViewModel : ObservableObject, IDisposable
 
     public FabLibraryViewModel(
         IFabCatalogReadService catalogService,
-        IThumbnailCacheService thumbnailCache)
+        IThumbnailCacheService thumbnailCache,
+        INetworkMonitor networkMonitor)
     {
         _catalogService = catalogService;
         _thumbnailCache = thumbnailCache;
+        _networkMonitor = networkMonitor;
         _dispatcherQueue = DispatcherQueue.GetForCurrentThread();
+        _isOffline = !networkMonitor.IsNetworkAvailable;
+        _networkMonitor.NetworkStatusChanged += OnNetworkStatusChanged;
 
         Logger.Debug("FabLibraryViewModel 已创建");
     }
@@ -64,6 +73,7 @@ public partial class FabLibraryViewModel : ObservableObject, IDisposable
     [RelayCommand]
     private async Task LoadAsync()
     {
+        HasError = false;
         IsLoading = true;
         try
         {
@@ -180,10 +190,13 @@ public partial class FabLibraryViewModel : ObservableObject, IDisposable
         var result = await _catalogService.SearchAsync(query, CancellationToken.None);
         if (!result.IsSuccess)
         {
+            HasError = true;
+            ErrorMessage = result.Error?.UserMessage ?? "加载资产列表失败";
             Logger.Warning("Fab 搜索失败: {Error}", result.Error?.TechnicalMessage);
             return;
         }
 
+        HasError = false;
         var pagedResult = result.Value!;
         UpdatePageState(pagedResult, append);
     }
@@ -224,8 +237,18 @@ public partial class FabLibraryViewModel : ObservableObject, IDisposable
     {
         if (_disposed) return;
         _disposed = true;
+        _networkMonitor.NetworkStatusChanged -= OnNetworkStatusChanged;
         _searchCts.Dispose();
         GC.SuppressFinalize(this);
+    }
+
+    private void OnNetworkStatusChanged(bool isAvailable)
+    {
+        _dispatcherQueue.TryEnqueue(() =>
+        {
+            IsOffline = !isAvailable;
+            Logger.Debug("FabLibraryViewModel 网络状态变化 | IsOffline={IsOffline}", IsOffline);
+        });
     }
 }
 

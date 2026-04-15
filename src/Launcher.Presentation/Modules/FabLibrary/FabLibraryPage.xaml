@@ -97,6 +97,32 @@
             </Grid>
         </Grid>
 
+        <!-- ====== 离线提示 ====== -->
+        <InfoBar
+            Grid.Row="2"
+            IsOpen="{x:Bind ViewModel.IsOffline, Mode=OneWay}"
+            IsClosable="False"
+            Severity="Warning"
+            Title="网络不可用"
+            Message="当前处于离线状态，资产库内容可能无法加载。请检查网络连接后重试。"
+            Margin="36,8,36,0"
+            VerticalAlignment="Top" />
+
+        <!-- ====== 错误状态 ====== -->
+        <InfoBar
+            Grid.Row="2"
+            IsOpen="{x:Bind ViewModel.HasError, Mode=OneWay}"
+            IsClosable="False"
+            Severity="Error"
+            Title="加载失败"
+            Message="{x:Bind ViewModel.ErrorMessage, Mode=OneWay}"
+            Margin="36,64,36,0"
+            VerticalAlignment="Top">
+            <InfoBar.ActionButton>
+                <Button Content="重试" Command="{x:Bind ViewModel.LoadCommand}" />
+            </InfoBar.ActionButton>
+        </InfoBar>
+
         <!-- ====== 加载骨架屏 ====== -->
         <Grid
             Grid.Row="2"

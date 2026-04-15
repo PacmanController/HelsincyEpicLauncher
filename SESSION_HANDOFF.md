@@ -2,26 +2,40 @@
 
 ## 最后更新
 - 时间：2026-04-16
-- 完成任务：Task 8.3（性能优化）
+- 完成任务：Task 8.4（UI 打磨 + 错误闭环）
 
 ## 当前项目状态
 - 最后成功编译：是（dotnet build 9 个项目零错误零警告）
 - 最后测试结果：全部通过（176/176）
-- 当前 Phase：Phase 8 进行中（Task 8.1 + 8.2 + 8.3 完成）
-- 下一个任务：Task 8.4（UI 打磨 + 错误闭环）
+- 当前 Phase：**Phase 8 全部完成（Task 8.1 ~ 8.4）**
+- 下一个任务：无（所有 Phase 0-8 已完成）
 
-## 本次会话完成的工作
+## Phase 8 完整总结
 
-### Task 8.3 — 性能优化
-- 冷启动：后台服务异步启动（Task.Run 延迟 200ms 启动，窗口先显示）；OperationTimer 记录每个阶段耗时
-- Migration_006：idx_downloads_asset_id + idx_chunk_checkpoints_task_id
-- BitmapImage DecodePixelWidth=220，内存占用降低约 80%
-- FabLibraryPage / DownloadsPage 添加 Unloaded → ViewModel.Dispose()，解除事件订阅
+### Task 8.1 — 自动更新
+- IAppUpdateService、IInternalUpdateNotifier、AppUpdateService（GitHub Releases API）
+- AppUpdateWorker（24h 定时检查，IInternalUpdateNotifier 触发事件）
+- ShellViewModel 更新 UI（HasPendingUpdate/CanSkipUpdate）
 
 ### Task 8.2 — 网络韧性增强
-- INetworkMonitor、NetworkMonitor、NetworkMonitorWorker、PauseAllAsync/ResumeAllAsync
-### Task 8.1 — 自动更新
-- IAppUpdateService、AppUpdateService、AppUpdateWorker、ShellViewModel 更新 UI
+- INetworkMonitor、NetworkMonitor（NetworkChange 事件）
+- NetworkMonitorWorker（断联暂停/恢复续传）
+- DownloadOrchestrator GetActiveTaskIdsAsync/GetPausedTaskIdsAsync
+- PauseAllAsync/ResumeAllAsync on DownloadCommandService
+
+### Task 8.3 — 性能优化
+- Migration_006 DB 索引
+- 后台服务异步启动，OperationTimer 计时
+- BitmapImage DecodePixelWidth=220
+- Page Unloaded → ViewModel.Dispose()
+
+### Task 8.4 — UI 打磨 + 错误闭环
+- FabLibraryViewModel：HasError + IsOffline + INetworkMonitor
+- FabLibraryPage：离线 InfoBar + 错误 InfoBar（含重试）
+- FabAssetDetailPage：错误面板添加重试按钮
+- InstallationsViewModel：HasError/ErrorMessage + try/catch
+- InstallationsPage：错误 InfoBar（含重试）
+- NavigationService：EntranceNavigationTransitionInfo 页面过渡动画
 
 ### Task 7.2 — 引擎启动 + 插件管理
 - Application 层：PluginSummary / CompatibilityReport DTO、IPluginReadService、IPluginCommandService

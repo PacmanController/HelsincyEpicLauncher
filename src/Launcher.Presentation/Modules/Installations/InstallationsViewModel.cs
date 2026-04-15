@@ -29,6 +29,8 @@ public partial class InstallationsViewModel : ObservableObject
     [ObservableProperty] private bool _hasInstallations;
     [ObservableProperty] private int _installCount;
     [ObservableProperty] private string _totalSizeText = string.Empty;
+    [ObservableProperty] private bool _hasError;
+    [ObservableProperty] private string _errorMessage = string.Empty;
 
     public InstallationsViewModel(
         IInstallReadService readService,
@@ -49,6 +51,7 @@ public partial class InstallationsViewModel : ObservableObject
     [RelayCommand]
     private async Task LoadAsync()
     {
+        HasError = false;
         IsLoading = true;
         try
         {
@@ -59,6 +62,12 @@ public partial class InstallationsViewModel : ObservableObject
 
             UpdateAggregates();
             Logger.Information("已安装列表已加载：{Count} 个资产", Installations.Count);
+        }
+        catch (Exception ex)
+        {
+            HasError = true;
+            ErrorMessage = "加载已安装列表失败";
+            Logger.Error(ex, "加载已安装列表失败");
         }
         finally
         {

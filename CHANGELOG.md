@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+### Task 8.4 - UI 打磨 + 错误闭环 (2026-04-16)
+- FabLibraryViewModel：新增 HasError/ErrorMessage（搜索/加载失败时设置）、IsOffline（注入 INetworkMonitor 实时跟踪网络状态）；Dispose 时解除 NetworkStatusChanged 订阅
+- FabLibraryPage.xaml：新增离线提示 InfoBar（IsOffline=true 时显示）+ 错误 InfoBar（HasError=true 时显示，含重试按钮）
+- FabAssetDetailPage.xaml：错误面板新增「重试」按钮（CommandParameter 绑定 AssetId，触发 LoadCommand 重新加载）
+- InstallationsViewModel：新增 HasError/ErrorMessage；LoadAsync 改为 try/catch，失败时设置 HasError
+- InstallationsPage.xaml：新增错误 InfoBar（HasError=true 时显示，含重试按钮）
+- NavigationService：Frame.Navigate 改用 EntranceNavigationTransitionInfo，页面切换有入场过渡动画
+- 错误闭环覆盖：FabLibrary / FabAssetDetail / Installations 全部有 Error→提示+重试 路径
+- 离线状态覆盖：FabLibraryPage 在无网络时显示 Warning InfoBar
+- dotnet build 9 项目零错误零警告，dotnet test 176/176 通过
+
 ### Task 8.3 - 性能优化 (2026-04-16)
 - 冷启动优化：后台服务（TokenRefresh/AutoInstall/AppUpdateWorker/NetworkMonitorWorker）移至窗口激活后 Task.Run 异步启动，不再阻塞主窗口显示；App.xaml.cs 添加冷启动全链路耗时日志（OperationTimer）
 - DB 索引优化（Migration_006）：新增 `idx_downloads_asset_id`（优化 GetByAssetIdAsync 频繁查询）+ `idx_chunk_checkpoints_task_id`（优化断点续传查询）

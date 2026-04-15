@@ -39,6 +39,19 @@
                           Width="32" Height="32"
                           HorizontalAlignment="Center" Margin="0,32,0,0" />
 
+            <!-- 错误状态 -->
+            <InfoBar
+                IsOpen="{x:Bind ViewModel.HasError, Mode=OneWay}"
+                IsClosable="False"
+                Severity="Error"
+                Title="加载失败"
+                Message="{x:Bind ViewModel.ErrorMessage, Mode=OneWay}"
+                Margin="0,8,0,0">
+                <InfoBar.ActionButton>
+                    <Button Content="重试" Command="{x:Bind ViewModel.LoadCommand}" />
+                </InfoBar.ActionButton>
+            </InfoBar>
+
             <!-- 空状态 -->
             <StackPanel Visibility="{x:Bind local:InstallationsPage.NotToVisibility(ViewModel.HasInstallations), Mode=OneWay}"
                         HorizontalAlignment="Center" Spacing="8" Margin="0,48,0,0">

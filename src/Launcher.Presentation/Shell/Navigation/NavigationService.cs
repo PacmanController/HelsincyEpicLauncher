@@ -1,6 +1,7 @@
 // Copyright (c) Helsincy. All rights reserved.
 
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Media.Animation;
 using Launcher.Presentation.Modules.Diagnostics;
 using Launcher.Presentation.Modules.Downloads;
 using Launcher.Presentation.Modules.EngineVersions;
@@ -71,7 +72,7 @@ public sealed class NavigationService : INavigationService
             return Task.CompletedTask;
         }
 
-        _frame.Navigate(pageType, parameter);
+        _frame.Navigate(pageType, parameter, new EntranceNavigationTransitionInfo());
 
         if (!string.IsNullOrEmpty(_currentRoute))
         {
