@@ -13,6 +13,8 @@
 | 2026-04-16 | 第2遍 | ✅ 完成 | 7 | 模块耦合与依赖审查：1🔴 4🟡 2🟢 |
 | 2026-04-16 | 第3遍 | ✅ 完成 | 12 | 文档契约vs实际实现：1🔴 8🟡 3🟢 |
 | 2026-04-16 | 第4遍 | ✅ 完成 | 26 | Bug与边界条件：3🔴 19🟡 4🟢 |
+| 2026-04-16 | 第5遍 | ✅ 完成 | 20 | 可改进项与最终总结：1🔴 11🟡 8🟢 |
+| **总计** | **5轮** | **✅ 全部完成** | **71** | **7🔴 + 46🟡 + 18🟢 · 综合评分 6.7/10** |
 
 ---
 
@@ -68,3 +70,19 @@
 - 关键发现：InstallationRepository assetId 路径遍历风险（🟡）
 - 累计发现（4轮）：6🔴 + 35🟡 + 10🟢 = 51 项
 - 输出文档：`04-Review-BugsAndEdgeCases.md`
+
+### 2026-04-16 — 第5遍审查
+
+- 审查范围：代码重复(DRY)、命名一致性、性能隐患、测试覆盖度、硬编码值、可读性、安全性(OWASP)
+- 关键发现：核心子系统（DownloadOrchestrator/Scheduler/AuthService/ViewModel）无单元测试（🔴）
+- 关键发现：Error 对象创建冗余（DL_NOT_FOUND × 4 等同一文件重复）（🟡）
+- 关键发现：Polly Pipeline + JsonSerializerOptions 配置跨文件重复（🟡）
+- 关键发现：应用名 "HelsincyEpicLauncher" 8 处散布硬编码（🟡）
+- 关键发现：SettingsService 使用 JSON 序列化做深拷贝（性能）（🟡）
+- 关键发现：LogSanitizer 已实现但未在 Auth 日志中使用（🟡）
+- 测试覆盖度估算：Domain ~70%, Infrastructure ~25%, Background ~33%, Presentation ~5%, App 0%
+- **五轮审查全部完成**
+- 累计发现：7🔴 + 46🟡 + 18🟢 = 71 项
+- 综合代码质量评分：**6.7 / 10**
+- Top 10 优先修复项已排列
+- 输出文档：`05-Review-ImprovementsAndSummary.md`
