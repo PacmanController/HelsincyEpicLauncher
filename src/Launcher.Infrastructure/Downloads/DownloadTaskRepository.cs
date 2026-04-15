@@ -174,9 +174,11 @@ internal sealed class DownloadTaskRepository : IDownloadTaskRepository
     public async Task DeleteCheckpointAsync(DownloadTaskId taskId, CancellationToken ct)
     {
         using var conn = await _connectionFactory.CreateConnectionAsync(ct);
+        using var transaction = conn.BeginTransaction();
         var taskIdStr = taskId.Value.ToString();
-        await conn.ExecuteAsync("DELETE FROM chunk_checkpoints WHERE task_id = @TaskId", new { TaskId = taskIdStr });
-        await conn.ExecuteAsync("DELETE FROM download_checkpoints WHERE task_id = @TaskId", new { TaskId = taskIdStr });
+        await conn.ExecuteAsync("DELETE FROM chunk_checkpoints WHERE task_id = @TaskId", new { TaskId = taskIdStr }, transaction);
+        await conn.ExecuteAsync("DELETE FROM download_checkpoints WHERE task_id = @TaskId", new { TaskId = taskIdStr }, transaction);
+        transaction.Commit();
         _logger.Debug("删除 Checkpoint {TaskId}", taskId);
     }
 

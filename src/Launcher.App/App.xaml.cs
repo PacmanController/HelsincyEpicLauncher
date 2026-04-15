@@ -36,6 +36,7 @@ public partial class App : Microsoft.UI.Xaml.Application
     private static Mutex? _mutex;
     private MainWindow? _mainWindow;
     private TrayIconManager? _trayIcon;
+    private readonly CancellationTokenSource _appCts = new();
 
     /// <summary>
     /// 全局服务提供器
@@ -130,6 +131,7 @@ public partial class App : Microsoft.UI.Xaml.Application
         _trayIcon.ExitRequested += () =>
         {
             Log.Information("用户从托盘请求退出应用");
+            _appCts.Cancel();
             _trayIcon.Dispose();
             _mainWindow?.Close();
             Environment.Exit(0);
@@ -195,17 +197,18 @@ public partial class App : Microsoft.UI.Xaml.Application
     /// </summary>
     private void StartPipeListener()
     {
+        var ct = _appCts.Token;
         _ = Task.Run(async () =>
         {
-            while (true)
+            while (!ct.IsCancellationRequested)
             {
                 try
                 {
                     using var server = new NamedPipeServerStream(PipeName, PipeDirection.In);
-                    await server.WaitForConnectionAsync();
+                    await server.WaitForConnectionAsync(ct);
 
                     using var reader = new StreamReader(server);
-                    string? message = await reader.ReadLineAsync();
+                    string? message = await reader.ReadLineAsync(ct);
 
                     if (message == "ACTIVATE")
                     {
@@ -213,12 +216,19 @@ public partial class App : Microsoft.UI.Xaml.Application
                         ActivateMainWindow();
                     }
                 }
+                catch (OperationCanceledException)
+                {
+                    break;
+                }
                 catch (Exception ex)
                 {
                     Log.Warning(ex, "命名管道监听异常");
+                    // 避免构造失败时紧循环消耗 CPU
+                    try { await Task.Delay(1000, ct); }
+                    catch (OperationCanceledException) { break; }
                 }
             }
-        });
+        }, ct);
     }
 
     /// <summary>

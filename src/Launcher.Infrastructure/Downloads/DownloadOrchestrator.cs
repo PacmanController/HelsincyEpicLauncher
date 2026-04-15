@@ -32,7 +32,19 @@ public sealed class DownloadOrchestrator
         // 验证磁盘空间
         if (request.TotalBytes > 0)
         {
-            var driveInfo = new DriveInfo(Path.GetPathRoot(request.DestinationPath)!);
+            var pathRoot = Path.GetPathRoot(request.DestinationPath);
+            if (string.IsNullOrEmpty(pathRoot))
+            {
+                return Result.Fail<DownloadTaskId>(new Error
+                {
+                    Code = "DL_INVALID_PATH",
+                    UserMessage = "下载目标路径无效",
+                    TechnicalMessage = $"Cannot determine drive root for: {request.DestinationPath}",
+                    Severity = ErrorSeverity.Error
+                });
+            }
+
+            var driveInfo = new DriveInfo(pathRoot);
             var requiredSpace = (long)(request.TotalBytes * 1.2);
             if (driveInfo.AvailableFreeSpace < requiredSpace)
             {
@@ -208,23 +220,39 @@ public sealed class DownloadOrchestrator
 
         foreach (var task in activeTasks)
         {
-            if (task.State is not (DownloadState.Queued or DownloadState.Paused))
+            if (task.State == DownloadState.Paused)
             {
-                if (task.CanTransitionTo(DownloadState.Failed))
-                    task.TransitionTo(DownloadState.Failed);
-
-                if (task.CanTransitionTo(DownloadState.Queued))
-                {
-                    task.TransitionTo(DownloadState.Queued);
-                    await _repository.UpdateAsync(task, ct);
-                    await _scheduler.QueueAsync(task.Id, task.Priority, ct);
-                    _logger.Information("恢复任务 {TaskId} 重新入队", task.Id);
-                }
+                // 暂停任务保持原状，不自动恢复
+                continue;
             }
-            else if (task.State == DownloadState.Queued)
+
+            if (task.State == DownloadState.Queued)
             {
+                // 已在队列中，直接重新调度
                 await _scheduler.QueueAsync(task.Id, task.Priority, ct);
-                _logger.Information("恢复任务 {TaskId} 重新入队", task.Id);
+                _logger.Information("恢复任务 {TaskId} 重新入队（原 Queued）", task.Id);
+                continue;
+            }
+
+            // 中间状态（Preparing/Downloading/Verifying 等）→ 先转 Failed 再转 Queued
+            if (task.CanTransitionTo(DownloadState.Failed))
+            {
+                task.TransitionTo(DownloadState.Failed);
+            }
+
+            if (task.CanTransitionTo(DownloadState.Queued))
+            {
+                task.TransitionTo(DownloadState.Queued);
+                task.ClearError();
+                await _repository.UpdateAsync(task, ct);
+                await _scheduler.QueueAsync(task.Id, task.Priority, ct);
+                _logger.Information("恢复任务 {TaskId} 重新入队（经 Failed 中转）", task.Id);
+            }
+            else
+            {
+                // 无法恢复，持久化 Failed 状态
+                await _repository.UpdateAsync(task, ct);
+                _logger.Warning("任务 {TaskId} 无法恢复，标记为 Failed | 当前状态={State}", task.Id, task.State);
             }
         }
     }

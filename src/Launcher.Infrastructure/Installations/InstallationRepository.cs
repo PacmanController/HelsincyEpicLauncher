@@ -115,8 +115,17 @@ internal sealed class InstallationRepository : IInstallationRepository
 
     private static string GetManifestPath(string assetId)
     {
+        // 防止路径遍历攻击：移除路径分隔符和 ".." 片段
+        var sanitized = assetId
+            .Replace(Path.DirectorySeparatorChar.ToString(), "", StringComparison.Ordinal)
+            .Replace(Path.AltDirectorySeparatorChar.ToString(), "", StringComparison.Ordinal)
+            .Replace("..", "", StringComparison.Ordinal);
+
+        if (string.IsNullOrWhiteSpace(sanitized))
+            throw new ArgumentException("assetId 无效", nameof(assetId));
+
         var appData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-        return Path.Combine(appData, "HelsincyEpicLauncher", "manifests", $"{assetId}.json");
+        return Path.Combine(appData, "HelsincyEpicLauncher", "manifests", $"{sanitized}.json");
     }
 
     // ===== Mapping =====
