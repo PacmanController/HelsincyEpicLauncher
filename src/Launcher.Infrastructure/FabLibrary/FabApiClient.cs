@@ -7,8 +7,8 @@ using System.Text.Json.Serialization;
 using Launcher.Application.Modules.Auth.Contracts;
 using Launcher.Application.Modules.FabLibrary.Contracts;
 using Launcher.Shared;
+using Launcher.Infrastructure.Network;
 using Polly;
-using Polly.Retry;
 using Serilog;
 
 namespace Launcher.Infrastructure.FabLibrary;
@@ -30,25 +30,7 @@ public sealed class FabApiClient
         _httpClient = httpClientFactory.CreateClient("FabApi");
         _authService = authService;
 
-        _pipeline = new ResiliencePipelineBuilder<HttpResponseMessage>()
-            .AddRetry(new RetryStrategyOptions<HttpResponseMessage>
-            {
-                MaxRetryAttempts = 3,
-                Delay = TimeSpan.FromSeconds(1),
-                BackoffType = DelayBackoffType.Exponential,
-                ShouldHandle = new PredicateBuilder<HttpResponseMessage>()
-                    .Handle<HttpRequestException>()
-                    .Handle<TaskCanceledException>()
-                    .HandleResult(r => (int)r.StatusCode >= 500),
-                OnRetry = args =>
-                {
-                    _logger.Warning("Fab API 重试 #{Attempt}, 延迟 {Delay}ms",
-                        args.AttemptNumber, args.RetryDelay.TotalMilliseconds);
-                    return ValueTask.CompletedTask;
-                },
-            })
-            .AddTimeout(TimeSpan.FromSeconds(30))
-            .Build();
+        _pipeline = HttpResiliencePipelineFactory.CreateDefault(_logger);
     }
 
     /// <summary>搜索 Fab 资产</summary>

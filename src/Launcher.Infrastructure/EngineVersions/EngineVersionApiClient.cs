@@ -6,6 +6,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using Launcher.Application.Modules.Auth.Contracts;
 using Launcher.Shared;
+using Launcher.Infrastructure.Network;
 using Polly;
 using Serilog;
 
@@ -29,18 +30,7 @@ public sealed class EngineVersionApiClient
         _httpClient = httpClientFactory.CreateClient("EngineVersionApi");
         _authService = authService;
 
-        _pipeline = new ResiliencePipelineBuilder<HttpResponseMessage>()
-            .AddRetry(new Polly.Retry.RetryStrategyOptions<HttpResponseMessage>
-            {
-                MaxRetryAttempts = 3,
-                Delay = TimeSpan.FromSeconds(1),
-                BackoffType = DelayBackoffType.Exponential,
-                ShouldHandle = new PredicateBuilder<HttpResponseMessage>()
-                    .HandleResult(r => !r.IsSuccessStatusCode && (int)r.StatusCode >= 500)
-                    .Handle<HttpRequestException>(),
-            })
-            .AddTimeout(TimeSpan.FromSeconds(30))
-            .Build();
+        _pipeline = HttpResiliencePipelineFactory.CreateDefault(Logger);
     }
 
     /// <summary>获取可用引擎版本列表</summary>

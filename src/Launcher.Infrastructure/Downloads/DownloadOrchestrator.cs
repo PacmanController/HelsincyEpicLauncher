@@ -39,7 +39,7 @@ internal sealed class DownloadOrchestrator : IDownloadOrchestrator
             }
 
             var driveInfo = new DriveInfo(pathRoot);
-            var requiredSpace = (long)(request.TotalBytes * 1.2);
+            var requiredSpace = (long)(request.TotalBytes * AppConstants.Download.DiskSpaceBufferFactor);
             if (driveInfo.AvailableFreeSpace < requiredSpace)
             {
                 _logger.Warning("磁盘空间不足: 需要 {Required} 字节, 可用 {Available} 字节",
@@ -166,40 +166,48 @@ internal sealed class DownloadOrchestrator : IDownloadOrchestrator
 
         foreach (var task in activeTasks)
         {
-            if (task.State == DownloadState.Paused)
-            {
-                // 暂停任务保持原状，不自动恢复
-                continue;
-            }
+            await RecoverSingleTaskAsync(task, ct);
+        }
+    }
 
-            if (task.State == DownloadState.Queued)
-            {
+    private async Task RecoverSingleTaskAsync(DownloadTask task, CancellationToken ct)
+    {
+        switch (task.State)
+        {
+            case DownloadState.Paused:
+                // 暂停任务保持原状，不自动恢复
+                break;
+
+            case DownloadState.Queued:
                 // 已在队列中，直接重新调度
                 await _scheduler.QueueAsync(task.Id, task.Priority, ct);
                 _logger.Information("恢复任务 {TaskId} 重新入队（原 Queued）", task.Id);
-                continue;
-            }
+                break;
 
-            // 中间状态（Preparing/Downloading/Verifying 等）→ 先转 Failed 再转 Queued
-            if (task.CanTransitionTo(DownloadState.Failed))
-            {
-                task.TransitionTo(DownloadState.Failed);
-            }
+            default:
+                // 中间状态（Preparing/Downloading/Verifying 等）→ 先转 Failed 再转 Queued
+                await RecoverInterruptedTaskAsync(task, ct);
+                break;
+        }
+    }
 
-            if (task.CanTransitionTo(DownloadState.Queued))
-            {
-                task.TransitionTo(DownloadState.Queued);
-                task.ClearError();
-                await _repository.UpdateAsync(task, ct);
-                await _scheduler.QueueAsync(task.Id, task.Priority, ct);
-                _logger.Information("恢复任务 {TaskId} 重新入队（经 Failed 中转）", task.Id);
-            }
-            else
-            {
-                // 无法恢复，持久化 Failed 状态
-                await _repository.UpdateAsync(task, ct);
-                _logger.Warning("任务 {TaskId} 无法恢复，标记为 Failed | 当前状态={State}", task.Id, task.State);
-            }
+    private async Task RecoverInterruptedTaskAsync(DownloadTask task, CancellationToken ct)
+    {
+        if (task.CanTransitionTo(DownloadState.Failed))
+            task.TransitionTo(DownloadState.Failed);
+
+        if (task.CanTransitionTo(DownloadState.Queued))
+        {
+            task.TransitionTo(DownloadState.Queued);
+            task.ClearError();
+            await _repository.UpdateAsync(task, ct);
+            await _scheduler.QueueAsync(task.Id, task.Priority, ct);
+            _logger.Information("恢复任务 {TaskId} 重新入队（经 Failed 中转）", task.Id);
+        }
+        else
+        {
+            await _repository.UpdateAsync(task, ct);
+            _logger.Warning("任务 {TaskId} 无法恢复，标记为 Failed | 当前状态={State}", task.Id, task.State);
         }
     }
 

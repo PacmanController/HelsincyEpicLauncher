@@ -5,6 +5,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Launcher.Application.Modules.Downloads.Contracts;
 using Launcher.Domain.Downloads;
+using Launcher.Shared;
 using Serilog;
 
 namespace Launcher.Presentation.Modules.Downloads;
@@ -71,7 +72,7 @@ public partial class DownloadsViewModel : ObservableObject, IDisposable
             foreach (var item in active)
                 Downloads.Add(DownloadItemViewModel.FromSummary(item));
 
-            var history = await _readService.GetHistoryAsync(50, _disposalCts.Token);
+            var history = await _readService.GetHistoryAsync(AppConstants.Download.HistoryQueryLimit, _disposalCts.Token);
             History.Clear();
             foreach (var item in history)
                 History.Add(DownloadItemViewModel.FromSummary(item));
