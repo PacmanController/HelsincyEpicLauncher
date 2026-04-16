@@ -44,6 +44,14 @@ public partial class App : Microsoft.UI.Xaml.Application
     public static IServiceProvider Services { get; private set; } = null!;
 
     /// <summary>
+    /// 初始化应用资源字典。
+    /// </summary>
+    public App()
+    {
+        InitializeComponent();
+    }
+
+    /// <summary>
     /// WinUI 3 应用启动入口
     /// </summary>
     protected override void OnLaunched(LaunchActivatedEventArgs args)
