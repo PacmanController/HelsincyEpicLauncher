@@ -41,6 +41,15 @@ public sealed partial class MainWindow : Window
     }
 
     /// <summary>
+    /// 隐藏加载指示器（Phase 1 完成后调用）
+    /// </summary>
+    public void HideLoadingIndicator()
+    {
+        if (LoadingIndicator is not null)
+            LoadingIndicator.Visibility = Microsoft.UI.Xaml.Visibility.Collapsed;
+    }
+
+    /// <summary>
     /// 配置窗口尺寸：默认 1280x800，最小 1024x640
     /// </summary>
     private static void ConfigureWindowSize(IntPtr hwnd)

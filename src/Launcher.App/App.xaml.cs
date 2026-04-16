@@ -74,23 +74,61 @@ public partial class App : Microsoft.UI.Xaml.Application
         ConfigureCloseToTray();
 
         _mainWindow.Activate();
+        _mainWindow.HideLoadingIndicator();
 
         appStartSw.Stop();
         Log.Information("主窗口已显示 | 冷启动耗时 {ElapsedMs}ms | 系统托盘图标已就绪",
             appStartSw.ElapsedMilliseconds);
 
+        // === Phase 2（后台）：会话恢复 + 下载恢复 ===
         // === Phase 3（延迟）：后台服务启动（不阻塞窗口显示） ===
-        _ = Task.Run(StartBackgroundServicesAsync);
+        _ = Task.Run(() => StartPostLaunchAsync(_appCts.Token));
     }
 
     /// <summary>
-    /// 在后台线程启动所有后台 Worker，避免阻塞主窗口显示
+    /// 启动后异步流程：Phase 2 恢复 → Phase 3 后台服务
     /// </summary>
-    private static async Task StartBackgroundServicesAsync()
+    private static async Task StartPostLaunchAsync(CancellationToken ct)
     {
-        // 短暂等待 UI 线程完成首帧渲染，再启动后台服务
-        await Task.Delay(200).ConfigureAwait(false);
+        // 短暂等待 UI 线程完成首帧渲染
+        await Task.Delay(200, ct).ConfigureAwait(false);
 
+        await InitializePhase2Async(ct).ConfigureAwait(false);
+        await StartBackgroundServicesAsync(ct).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Phase 2：会话恢复 + 下载恢复
+    /// </summary>
+    private static async Task InitializePhase2Async(CancellationToken ct)
+    {
+        try
+        {
+            using var _ = new OperationTimer(Log.Logger, "Phase 2：恢复步骤");
+
+            var authService = Services.GetRequiredService<Launcher.Application.Modules.Auth.Contracts.IAuthService>();
+            await authService.TryRestoreSessionAsync(ct).ConfigureAwait(false);
+            Log.Information("会话恢复完成");
+
+            var downloadOrchestrator = Services.GetRequiredService<Launcher.Application.Modules.Downloads.Contracts.IDownloadOrchestrator>();
+            await downloadOrchestrator.RecoverAsync(ct).ConfigureAwait(false);
+            Log.Information("下载任务恢复完成");
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Phase 2 恢复失败");
+        }
+    }
+
+    /// <summary>
+    /// Phase 3：在后台线程启动所有后台 Worker
+    /// </summary>
+    private static Task StartBackgroundServicesAsync(CancellationToken ct)
+    {
         try
         {
             using var _ = new OperationTimer(Log.Logger, "后台服务启动");
@@ -108,11 +146,18 @@ public partial class App : Microsoft.UI.Xaml.Application
             networkWorker.Start();
 
             Log.Information("所有后台服务已启动");
+
+            // TODO: Phase 3 - 缩略图预热（预加载首屏缩略图）
+            // TODO: Phase 3 - 诊断信息收集（磁盘空间、内存等）
+            // TODO: Phase 3 - Fab 资产目录刷新（远程同步）
+            // TODO: Phase 3 - 清理上次崩溃遗留的临时文件
         }
         catch (Exception ex)
         {
             Log.Error(ex, "后台服务启动失败");
         }
+
+        return Task.CompletedTask;
     }
 
     /// <summary>
