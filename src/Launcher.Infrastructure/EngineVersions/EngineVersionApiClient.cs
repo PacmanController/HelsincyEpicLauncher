@@ -22,11 +22,7 @@ public sealed class EngineVersionApiClient
     private readonly IAuthService _authService;
     private readonly ResiliencePipeline<HttpResponseMessage> _pipeline;
 
-    private static readonly JsonSerializerOptions JsonOptions = new()
-    {
-        PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
-        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
-    };
+    private static readonly JsonSerializerOptions JsonOptions = Launcher.Shared.JsonDefaults.SnakeCaseLower;
 
     public EngineVersionApiClient(IHttpClientFactory httpClientFactory, IAuthService authService)
     {

@@ -15,11 +15,7 @@ namespace Launcher.Infrastructure.Settings;
 internal sealed class SettingsService : ISettingsCommandService, ISettingsReadService
 {
     private static readonly ILogger Logger = Log.ForContext<SettingsService>();
-    private static readonly JsonSerializerOptions JsonOptions = new()
-    {
-        WriteIndented = true,
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-    };
+    private static readonly JsonSerializerOptions JsonOptions = Launcher.Shared.JsonDefaults.CamelCaseIndented;
 
     private readonly string _settingsPath;
     private readonly object _lock = new();

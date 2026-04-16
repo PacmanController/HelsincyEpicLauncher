@@ -23,11 +23,7 @@ public sealed class FabApiClient
     private readonly ILogger _logger = Log.ForContext<FabApiClient>();
     private readonly ResiliencePipeline<HttpResponseMessage> _pipeline;
 
-    private static readonly JsonSerializerOptions JsonOptions = new()
-    {
-        PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
-        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
-    };
+    private static readonly JsonSerializerOptions JsonOptions = Launcher.Shared.JsonDefaults.SnakeCaseLower;
 
     public FabApiClient(IHttpClientFactory httpClientFactory, IAuthService authService)
     {

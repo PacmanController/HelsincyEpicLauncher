@@ -35,13 +35,7 @@ public sealed class DownloadOrchestrator
             var pathRoot = Path.GetPathRoot(request.DestinationPath);
             if (string.IsNullOrEmpty(pathRoot))
             {
-                return Result.Fail<DownloadTaskId>(new Error
-                {
-                    Code = "DL_INVALID_PATH",
-                    UserMessage = "下载目标路径无效",
-                    TechnicalMessage = $"Cannot determine drive root for: {request.DestinationPath}",
-                    Severity = ErrorSeverity.Error
-                });
+                return Result.Fail<DownloadTaskId>(DownloadErrors.InvalidPath(request.DestinationPath));
             }
 
             var driveInfo = new DriveInfo(pathRoot);
@@ -50,13 +44,7 @@ public sealed class DownloadOrchestrator
             {
                 _logger.Warning("磁盘空间不足: 需要 {Required} 字节, 可用 {Available} 字节",
                     requiredSpace, driveInfo.AvailableFreeSpace);
-                return Result.Fail<DownloadTaskId>(new Error
-                {
-                    Code = "DL_DISK_SPACE",
-                    UserMessage = "磁盘空间不足",
-                    TechnicalMessage = $"需要 {requiredSpace} 字节, 可用 {driveInfo.AvailableFreeSpace} 字节",
-                    Severity = ErrorSeverity.Error
-                });
+                return Result.Fail<DownloadTaskId>(DownloadErrors.InsufficientDiskSpace(requiredSpace, driveInfo.AvailableFreeSpace));
             }
         }
 
@@ -65,13 +53,7 @@ public sealed class DownloadOrchestrator
         if (existing is not null && existing.State is not (DownloadState.Completed or DownloadState.Cancelled or DownloadState.Failed))
         {
             _logger.Warning("资源 {AssetId} 已有活跃下载任务 {TaskId}", request.AssetId, existing.Id);
-            return Result.Fail<DownloadTaskId>(new Error
-            {
-                Code = "DL_DUPLICATE",
-                UserMessage = "该游戏已在下载队列中",
-                TechnicalMessage = $"AssetId={request.AssetId} 已有活跃任务 {existing.Id}",
-                Severity = ErrorSeverity.Warning
-            });
+            return Result.Fail<DownloadTaskId>(DownloadErrors.Duplicate(request.AssetId));
         }
 
         // 创建领域实体
@@ -103,13 +85,7 @@ public sealed class DownloadOrchestrator
     {
         var task = await _repository.GetByIdAsync(taskId, ct);
         if (task is null)
-            return Result.Fail(new Error
-            {
-                Code = "DL_NOT_FOUND",
-                UserMessage = "下载任务不存在",
-                TechnicalMessage = $"TaskId={taskId} not found",
-                Severity = ErrorSeverity.Warning
-            });
+            return Result.Fail(DownloadErrors.NotFound(taskId));
 
         // 正在下载中 -> 暂停
         if (task.CanTransitionTo(DownloadState.PausingChunks))
@@ -131,13 +107,7 @@ public sealed class DownloadOrchestrator
             return Result.Ok();
         }
 
-        return Result.Fail(new Error
-        {
-            Code = "DL_CANNOT_PAUSE",
-            UserMessage = "当前状态无法暂停",
-            TechnicalMessage = $"TaskId={taskId}, State={task.State}",
-            Severity = ErrorSeverity.Warning
-        });
+        return Result.Fail(DownloadErrors.CannotPause(taskId, task.State));
     }
 
     /// <summary>
@@ -147,22 +117,10 @@ public sealed class DownloadOrchestrator
     {
         var task = await _repository.GetByIdAsync(taskId, ct);
         if (task is null)
-            return Result.Fail(new Error
-            {
-                Code = "DL_NOT_FOUND",
-                UserMessage = "下载任务不存在",
-                TechnicalMessage = $"TaskId={taskId} not found",
-                Severity = ErrorSeverity.Warning
-            });
+            return Result.Fail(DownloadErrors.NotFound(taskId));
 
         if (!task.CanTransitionTo(DownloadState.Queued))
-            return Result.Fail(new Error
-            {
-                Code = "DL_CANNOT_RESUME",
-                UserMessage = "当前状态无法恢复",
-                TechnicalMessage = $"TaskId={taskId}, State={task.State}",
-                Severity = ErrorSeverity.Warning
-            });
+            return Result.Fail(DownloadErrors.CannotResume(taskId, task.State));
 
         var result = task.TransitionTo(DownloadState.Queued);
         if (result.IsFailure) return result;
@@ -183,22 +141,10 @@ public sealed class DownloadOrchestrator
     {
         var task = await _repository.GetByIdAsync(taskId, ct);
         if (task is null)
-            return Result.Fail(new Error
-            {
-                Code = "DL_NOT_FOUND",
-                UserMessage = "下载任务不存在",
-                TechnicalMessage = $"TaskId={taskId} not found",
-                Severity = ErrorSeverity.Warning
-            });
+            return Result.Fail(DownloadErrors.NotFound(taskId));
 
         if (!task.CanTransitionTo(DownloadState.Cancelled))
-            return Result.Fail(new Error
-            {
-                Code = "DL_CANNOT_CANCEL",
-                UserMessage = "当前状态无法取消",
-                TechnicalMessage = $"TaskId={taskId}, State={task.State}",
-                Severity = ErrorSeverity.Warning
-            });
+            return Result.Fail(DownloadErrors.CannotCancel(taskId, task.State));
 
         var result = task.TransitionTo(DownloadState.Cancelled);
         if (result.IsFailure) return result;
@@ -281,13 +227,7 @@ public sealed class DownloadOrchestrator
     {
         var task = await _repository.GetByIdAsync(taskId, ct);
         if (task is null)
-            return Result.Fail(new Error
-            {
-                Code = "DL_NOT_FOUND",
-                UserMessage = "下载任务不存在",
-                TechnicalMessage = $"TaskId={taskId} not found",
-                Severity = ErrorSeverity.Warning
-            });
+            return Result.Fail(DownloadErrors.NotFound(taskId));
 
         task.Priority = priority;
         await _repository.UpdateAsync(task, ct);
