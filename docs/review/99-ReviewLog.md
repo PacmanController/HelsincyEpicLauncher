@@ -86,3 +86,104 @@
 - 综合代码质量评分：**6.7 / 10**
 - Top 10 优先修复项已排列
 - 输出文档：`05-Review-ImprovementsAndSummary.md`
+
+---
+
+## 修复记录
+
+### 2026-04-16 — Batch 1（关键 Bug 修复）
+
+**Commit**: `dd33a85` | **文件**: 6 | **测试**: 176/176 通过
+
+| ID | 修复内容 |
+|----|----------|
+| R4-08 | ShellViewModel.OnSessionExpired 加 DispatcherQueue 包裹（线程崩溃） |
+| R4-01 | DownloadScheduler.TryScheduleNextAsync 顶层 try/catch（异常丢失） |
+| R4-13 | App.xaml.cs 数据库初始化用 Task.Run 包裹（死锁风险） |
+| R4-02 | ChunkDownloadClient Polly 排除用户取消的 TaskCanceledException |
+| R4-03 | ChunkDownloadClient 删除未使用的 HttpRequestMessage |
+| R4-15 | ShellViewModel 实现 IDisposable，lambda 改命名方法，退订所有事件 |
+| R4-09 | AuthService Token 刷新用 SemaphoreSlim 防竞态 + double-check |
+| R4-22 | TokenRefreshBackgroundService Timer 回调防并发重叠 |
+
+### 2026-04-16 — Batch 2（中等 Bug 修复）
+
+**Commit**: `d86bc48` | **文件**: 4 | **测试**: 176/176 通过
+
+| ID | 修复内容 |
+|----|----------|
+| R4-04 | DownloadOrchestrator.RecoverAsync 恢复逻辑重写 |
+| R4-05 | DownloadOrchestrator Path.GetPathRoot null 引用防护 |
+| R4-14 | App.xaml.cs StartPipeListener CancellationToken + 失败退避 |
+| R4-16 | InstallationRepository.GetManifestPath 路径遍历防护 (OWASP A01) |
+| R4-21 | DownloadTaskRepository.DeleteCheckpointAsync 包裹事务 |
+
+### 2026-04-16 — Batch 3（中等 Bug 修复）
+
+**Commit**: `791c3b9` | **文件**: 7 | **测试**: 176/176 通过
+
+| ID | 修复内容 |
+|----|----------|
+| R4-06 | DownloadScheduler CTS 不再链接调用方 CT |
+| R4-11 | FileTokenStore DateTime.Kind 反序列化修正（确保 UTC） |
+| R4-17 | HashingService/IntegrityVerifier SemaphoreSlim 添加 using |
+| R4-18 | InstallationRepository 同步 IO 改为 File.WriteAllTextAsync/ReadAllTextAsync |
+| R4-24 | TrayIconManager.Dispose 释放 ContextMenuStrip |
+| R4-25 | FabAssetCardViewModel 裸 catch 添加异常日志 |
+
+### 2026-04-16 — Batch 4（性能 + 安全）
+
+**Commit**: `9b6abbc` | **文件**: 5 | **测试**: 176/176 通过
+
+| ID | 修复内容 |
+|----|----------|
+| R4-07 | SpeedCalculator Queue.Last() O(n) → O(1) 缓存最新样本 |
+| R4-10 | EpicOAuthHandler 客户端凭据移至 appsettings.json |
+| R4-12 | EpicOAuthHandler.WaitForCallbackAsync CT 统一用 cts.Token |
+| R4-19 | RepositoryBase SQL 表名正则验证防注入 |
+| R4-20 | SqliteConnectionFactory PRAGMA WAL 只执行一次 |
+
+### 2026-04-16 — Batch 5（架构 + 质量）
+
+**Commit**: `9289eda` | **文件**: 13 | **测试**: 176/176 通过
+
+| ID | 修复内容 |
+|----|----------|
+| R1-02 | ShellViewModel.CanSkipUpdate 从 Visibility 改为 bool |
+| R1-03 | EngineVersionsViewModel 引擎路径改用 IAppConfigProvider |
+| R1-04 | FabAssetDetailViewModel 资产路径改用 IAppConfigProvider |
+| R5-13 | 提取 AppConstants.AppName 替换 8 处硬编码 |
+| R5-09 | DownloadOrchestrator 查询优化，新增仓储方法直接 SQL 过滤 |
+
+### 2026-04-16 — Batch 6（代码质量）
+
+**Commit**: `5c77777` | **文件**: 6 | **测试**: 176/176 通过
+
+| ID | 修复内容 |
+|----|----------|
+| R5-01 | 提取 DownloadErrors 静态错误工厂（消除 10 处重复） |
+| R5-03 | 提取 JsonDefaults 到 Shared 层（替换 3 处重复定义） |
+
+---
+
+## 修复统计
+
+| 批次 | 修复数 | 类型 |
+|------|--------|------|
+| Batch 1 | 8 | 关键 Bug（线程安全/死锁/竞态/泄漏） |
+| Batch 2 | 5 | 中等 Bug（逻辑/安全/事务） |
+| Batch 3 | 6 | 中等 Bug（资源泄漏/IO/日志） |
+| Batch 4 | 5 | 性能 + 安全 |
+| Batch 5 | 5 | 架构改进 |
+| Batch 6 | 2 | 代码质量 DRY |
+| **总计** | **31** | **71 项中已修复 31 项 (43.7%)** |
+
+### 未修复项（待后续处理）
+
+| 分类 | 项目 | 原因 |
+|------|------|------|
+| 架构重构 | R1-05(ThemeService I/O), R2-01(跨模块依赖), R3-03(IDownloadOrchestrator 接口) | 大范围重构，需专项处理 |
+| CancellationToken | R4-23, R4-26 | 涉及多个 ViewModel，影响面广 |
+| 代码风格 | R5-02(Polly重复), R5-05(Logger命名), R5-08(深拷贝) | ROI 较低 |
+| 文档同步 | R3-01, R3-02, R3-05, R3-06, R3-08, R3-10 | 文档类，不影响运行时 |
+| 测试覆盖 | R5-12 | 需专项编写测试 |
