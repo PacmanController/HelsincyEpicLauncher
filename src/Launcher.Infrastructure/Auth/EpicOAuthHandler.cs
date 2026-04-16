@@ -5,6 +5,7 @@ using System.Net;
 using System.Text.Json;
 using Launcher.Application.Modules.Auth.Contracts;
 using Launcher.Shared;
+using Launcher.Shared.Logging;
 using Microsoft.Extensions.Configuration;
 using Serilog;
 
@@ -112,7 +113,7 @@ internal sealed class EpicOAuthHandler
                 {
                     Code = "AUTH_REFRESH_FAILED",
                     UserMessage = "Token 刷新失败，请重新登录",
-                    TechnicalMessage = $"HTTP {(int)response.StatusCode}: {body}",
+                    TechnicalMessage = $"HTTP {(int)response.StatusCode}: {LogSanitizer.SanitizeHttpBody(body)}",
                     CanRetry = false,
                     Severity = ErrorSeverity.Warning,
                 });
@@ -129,7 +130,7 @@ internal sealed class EpicOAuthHandler
             {
                 Code = "AUTH_REFRESH_EXCEPTION",
                 UserMessage = "Token 刷新过程中出错",
-                TechnicalMessage = ex.Message,
+                TechnicalMessage = LogSanitizer.SanitizeHttpBody(ex.Message),
                 CanRetry = true,
                 Severity = ErrorSeverity.Error,
             });
@@ -157,7 +158,7 @@ internal sealed class EpicOAuthHandler
                 {
                     Code = "AUTH_ACCOUNT_INFO_FAILED",
                     UserMessage = "获取账户信息失败",
-                    TechnicalMessage = $"HTTP {(int)response.StatusCode}: {body}",
+                    TechnicalMessage = $"HTTP {(int)response.StatusCode}: {LogSanitizer.SanitizeHttpBody(body)}",
                     CanRetry = true,
                     Severity = ErrorSeverity.Warning,
                 });
@@ -181,7 +182,7 @@ internal sealed class EpicOAuthHandler
             {
                 Code = "AUTH_ACCOUNT_INFO_EXCEPTION",
                 UserMessage = "获取账户信息过程中出错",
-                TechnicalMessage = ex.Message,
+                TechnicalMessage = LogSanitizer.SanitizeHttpBody(ex.Message),
                 CanRetry = true,
                 Severity = ErrorSeverity.Error,
             });
@@ -251,7 +252,7 @@ internal sealed class EpicOAuthHandler
                 {
                     Code = "AUTH_TOKEN_EXCHANGE_FAILED",
                     UserMessage = "登录授权失败，请重试",
-                    TechnicalMessage = $"HTTP {(int)response.StatusCode}: {body}",
+                    TechnicalMessage = $"HTTP {(int)response.StatusCode}: {LogSanitizer.SanitizeHttpBody(body)}",
                     CanRetry = true,
                     Severity = ErrorSeverity.Error,
                 });
@@ -268,7 +269,7 @@ internal sealed class EpicOAuthHandler
             {
                 Code = "AUTH_TOKEN_EXCHANGE_EXCEPTION",
                 UserMessage = "登录过程中出错，请重试",
-                TechnicalMessage = ex.Message,
+                TechnicalMessage = LogSanitizer.SanitizeHttpBody(ex.Message),
                 CanRetry = true,
                 Severity = ErrorSeverity.Error,
             });

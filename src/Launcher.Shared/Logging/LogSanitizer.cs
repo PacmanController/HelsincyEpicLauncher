@@ -7,7 +7,7 @@ namespace Launcher.Shared.Logging;
 /// <summary>
 /// 日志字段脱敏工具。防止敏感信息写入日志。
 /// </summary>
-internal static partial class LogSanitizer
+public static partial class LogSanitizer
 {
     /// <summary>
     /// 脱敏 token：保留前 4 位 + ... + 后 4 位
@@ -32,4 +32,21 @@ internal static partial class LogSanitizer
 
     [GeneratedRegex(@"((?:token|code|key|secret|password)=)[^&]*", RegexOptions.IgnoreCase)]
     private static partial Regex SensitiveParamRegex();
+
+    /// <summary>
+    /// 脱敏 HTTP 响应体：移除敏感 JSON 字段值，截断过长内容
+    /// </summary>
+    public static string SanitizeHttpBody(string body, int maxLength = 200)
+    {
+        if (string.IsNullOrEmpty(body))
+            return string.Empty;
+
+        var sanitized = SensitiveJsonFieldRegex().Replace(body, "$1\"***\"");
+        return sanitized.Length > maxLength
+            ? $"{sanitized[..maxLength]}...[truncated]"
+            : sanitized;
+    }
+
+    [GeneratedRegex(@"(""(?:access_token|refresh_token|token|code|secret|password|authorization)""\s*:\s*)""[^""]*""", RegexOptions.IgnoreCase)]
+    private static partial Regex SensitiveJsonFieldRegex();
 }

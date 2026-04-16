@@ -91,6 +91,7 @@ public static class DependencyInjection
         {
             client.BaseAddress = new Uri("https://www.fab.com/api");
             client.DefaultRequestHeaders.Add("Accept", "application/json");
+            EnsureHttps(client.BaseAddress);
         });
         services.AddHttpClient("ThumbnailDownload");
         services.AddSingleton<FabApiClient>();
@@ -108,6 +109,7 @@ public static class DependencyInjection
         {
             client.BaseAddress = new Uri("https://www.unrealengine.com/api");
             client.DefaultRequestHeaders.Add("Accept", "application/json");
+            EnsureHttps(client.BaseAddress);
         });
         services.AddSingleton<EngineVersionApiClient>();
         services.AddSingleton<IEngineVersionReadService, EngineVersionReadService>();
@@ -123,6 +125,7 @@ public static class DependencyInjection
             client.BaseAddress = new Uri("https://api.github.com");
             client.DefaultRequestHeaders.Add("Accept", "application/vnd.github+json");
             client.DefaultRequestHeaders.Add("User-Agent", Launcher.Shared.AppConstants.AppName);
+            EnsureHttps(client.BaseAddress);
         });
         services.AddSingleton<AppUpdateService>();
         services.AddSingleton<IAppUpdateService>(sp => sp.GetRequiredService<AppUpdateService>());
@@ -133,5 +136,11 @@ public static class DependencyInjection
         services.AddSingleton<INetworkMonitor>(sp => sp.GetRequiredService<NetworkMonitor>());
 
         return services;
+    }
+
+    private static void EnsureHttps(Uri? baseAddress)
+    {
+        if (baseAddress is not null && !string.Equals(baseAddress.Scheme, "https", StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException($"API 端点必须使用 HTTPS: {baseAddress}");
     }
 }
