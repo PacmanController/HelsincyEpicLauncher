@@ -2,6 +2,7 @@
 
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
+using System.Runtime.InteropServices;
 using WinRT;
 
 namespace Launcher.App;
@@ -11,9 +12,13 @@ namespace Launcher.App;
 /// </summary>
 public static class Program
 {
+    [DllImport("Microsoft.ui.xaml.dll")]
+    private static extern void XamlCheckProcessRequirements();
+
     [STAThread]
     public static void Main(string[] args)
     {
+        XamlCheckProcessRequirements();
         ComWrappersSupport.InitializeComWrappers();
         Microsoft.UI.Xaml.Application.Start(p =>
         {

@@ -24,24 +24,19 @@ internal sealed class AppConfigProvider : Shared.Configuration.IAppConfigProvide
         _configuration["App:Version"] ?? "0.0.0";
 
     public string DataPath =>
-        EnsureDirectory(_configuration["Paths:Data"]
-            ?? Path.Combine(_localAppData, "Data"));
+        EnsureDirectory(GetConfiguredPathOrDefault("Paths:Data", Path.Combine(_localAppData, "Data")));
 
     public string LogPath =>
-        EnsureDirectory(_configuration["Paths:Logs"]
-            ?? Path.Combine(_localAppData, "Logs"));
+        EnsureDirectory(GetConfiguredPathOrDefault("Paths:Logs", Path.Combine(_localAppData, "Logs")));
 
     public string CachePath =>
-        EnsureDirectory(_configuration["Paths:Cache"]
-            ?? Path.Combine(_localAppData, "Cache"));
+        EnsureDirectory(GetConfiguredPathOrDefault("Paths:Cache", Path.Combine(_localAppData, "Cache")));
 
     public string DownloadPath =>
-        EnsureDirectory(_configuration["Paths:Downloads"]
-            ?? Path.Combine(_localAppData, "Downloads"));
+        EnsureDirectory(GetConfiguredPathOrDefault("Paths:Downloads", Path.Combine(_localAppData, "Downloads")));
 
     public string InstallPath =>
-        EnsureDirectory(_configuration["Paths:Installs"]
-            ?? Path.Combine(_localAppData, "Installs"));
+        EnsureDirectory(GetConfiguredPathOrDefault("Paths:Installs", Path.Combine(_localAppData, "Installs")));
 
     public int MaxConcurrentDownloads =>
         int.TryParse(_configuration["Downloads:MaxConcurrent"], out int val) ? val : 3;
@@ -59,5 +54,13 @@ internal sealed class AppConfigProvider : Shared.Configuration.IAppConfigProvide
             Directory.CreateDirectory(path);
         }
         return path;
+    }
+
+    private string GetConfiguredPathOrDefault(string key, string fallbackPath)
+    {
+        var configuredPath = _configuration[key];
+        return string.IsNullOrWhiteSpace(configuredPath)
+            ? fallbackPath
+            : configuredPath;
     }
 }
