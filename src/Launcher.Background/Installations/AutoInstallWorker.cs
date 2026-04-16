@@ -22,6 +22,7 @@ public sealed class AutoInstallWorker : IDisposable
     private readonly IInstallCommandService _installCommandService;
     private readonly IAppConfigProvider _configProvider;
     private readonly ILogger _logger = Log.ForContext<AutoInstallWorker>();
+    private CancellationTokenSource? _cts;
     private bool _disposed;
 
     public AutoInstallWorker(
@@ -41,12 +42,16 @@ public sealed class AutoInstallWorker : IDisposable
     /// <summary>启动监听</summary>
     public void Start()
     {
+        _cts = new CancellationTokenSource();
         _runtimeStore.DownloadCompleted += OnDownloadCompleted;
         _logger.Information("AutoInstallWorker 已启动");
     }
 
     private async void OnDownloadCompleted(DownloadCompletedEvent evt)
     {
+        if (_cts is null || _cts.IsCancellationRequested) return;
+        var ct = _cts.Token;
+
         try
         {
             var config = _settingsReadService.GetDownloadConfig();
@@ -59,7 +64,7 @@ public sealed class AutoInstallWorker : IDisposable
             _logger.Information("自动安装触发 {AssetId}, 下载文件: {Path}", evt.AssetId, evt.DownloadedFilePath);
 
             // 获取资产名称
-            var status = await _downloadReadService.GetStatusAsync(evt.AssetId, CancellationToken.None);
+            var status = await _downloadReadService.GetStatusAsync(evt.AssetId, ct);
             var assetName = status?.AssetName ?? evt.AssetId;
 
             var request = new InstallRequest
@@ -70,12 +75,16 @@ public sealed class AutoInstallWorker : IDisposable
                 InstallPath = Path.Combine(_configProvider.InstallPath, evt.AssetId),
             };
 
-            var result = await _installCommandService.InstallAsync(request, CancellationToken.None);
+            var result = await _installCommandService.InstallAsync(request, ct);
 
             if (result.IsSuccess)
                 _logger.Information("自动安装成功 {AssetId}", evt.AssetId);
             else
                 _logger.Warning("自动安装失败 {AssetId}: {Error}", evt.AssetId, result.Error?.TechnicalMessage);
+        }
+        catch (OperationCanceledException)
+        {
+            _logger.Debug("自动安装已取消 {AssetId}", evt.AssetId);
         }
         catch (Exception ex)
         {
@@ -87,6 +96,8 @@ public sealed class AutoInstallWorker : IDisposable
     {
         if (_disposed) return;
         _disposed = true;
+        _cts?.Cancel();
+        _cts?.Dispose();
         _runtimeStore.DownloadCompleted -= OnDownloadCompleted;
         _logger.Debug("AutoInstallWorker 已停止");
     }

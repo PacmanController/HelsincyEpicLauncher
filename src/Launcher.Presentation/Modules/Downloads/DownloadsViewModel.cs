@@ -20,6 +20,7 @@ public partial class DownloadsViewModel : ObservableObject, IDisposable
     private readonly IDownloadCommandService _commandService;
     private readonly IDownloadRuntimeStore _runtimeStore;
     private readonly Microsoft.UI.Dispatching.DispatcherQueue _dispatcherQueue;
+    private readonly CancellationTokenSource _disposalCts = new();
     private bool _disposed;
 
     /// <summary>
@@ -65,12 +66,12 @@ public partial class DownloadsViewModel : ObservableObject, IDisposable
         IsLoading = true;
         try
         {
-            var active = await _readService.GetActiveDownloadsAsync(CancellationToken.None);
+            var active = await _readService.GetActiveDownloadsAsync(_disposalCts.Token);
             Downloads.Clear();
             foreach (var item in active)
                 Downloads.Add(DownloadItemViewModel.FromSummary(item));
 
-            var history = await _readService.GetHistoryAsync(50, CancellationToken.None);
+            var history = await _readService.GetHistoryAsync(50, _disposalCts.Token);
             History.Clear();
             foreach (var item in history)
                 History.Add(DownloadItemViewModel.FromSummary(item));
@@ -87,7 +88,7 @@ public partial class DownloadsViewModel : ObservableObject, IDisposable
     [RelayCommand]
     private async Task PauseAsync(DownloadTaskId taskId)
     {
-        var result = await _commandService.PauseAsync(taskId, CancellationToken.None);
+        var result = await _commandService.PauseAsync(taskId, _disposalCts.Token);
         if (!result.IsSuccess)
             Logger.Warning("暂停失败: {TaskId}, {Error}", taskId, result.Error?.TechnicalMessage);
     }
@@ -95,7 +96,7 @@ public partial class DownloadsViewModel : ObservableObject, IDisposable
     [RelayCommand]
     private async Task ResumeAsync(DownloadTaskId taskId)
     {
-        var result = await _commandService.ResumeAsync(taskId, CancellationToken.None);
+        var result = await _commandService.ResumeAsync(taskId, _disposalCts.Token);
         if (!result.IsSuccess)
             Logger.Warning("恢复失败: {TaskId}, {Error}", taskId, result.Error?.TechnicalMessage);
     }
@@ -103,7 +104,7 @@ public partial class DownloadsViewModel : ObservableObject, IDisposable
     [RelayCommand]
     private async Task CancelAsync(DownloadTaskId taskId)
     {
-        var result = await _commandService.CancelAsync(taskId, CancellationToken.None);
+        var result = await _commandService.CancelAsync(taskId, _disposalCts.Token);
         if (!result.IsSuccess)
             Logger.Warning("取消失败: {TaskId}, {Error}", taskId, result.Error?.TechnicalMessage);
     }
@@ -202,6 +203,8 @@ public partial class DownloadsViewModel : ObservableObject, IDisposable
     {
         if (_disposed) return;
         _disposed = true;
+        _disposalCts.Cancel();
+        _disposalCts.Dispose();
         _runtimeStore.SnapshotChanged -= OnSnapshotChanged;
         _runtimeStore.DownloadCompleted -= OnDownloadCompleted;
         _runtimeStore.DownloadFailed -= OnDownloadFailed;
