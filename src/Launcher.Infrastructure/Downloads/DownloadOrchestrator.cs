@@ -10,15 +10,15 @@ namespace Launcher.Infrastructure.Downloads;
 /// <summary>
 /// 下载任务编排器。管理下载任务的完整生命周期。
 /// </summary>
-public sealed class DownloadOrchestrator
+internal sealed class DownloadOrchestrator : IDownloadOrchestrator
 {
     private readonly IDownloadTaskRepository _repository;
-    private readonly DownloadScheduler _scheduler;
+    private readonly IDownloadScheduler _scheduler;
     private readonly ILogger _logger = Log.ForContext<DownloadOrchestrator>();
 
     public DownloadOrchestrator(
         IDownloadTaskRepository repository,
-        DownloadScheduler scheduler)
+        IDownloadScheduler scheduler)
     {
         _repository = repository;
         _scheduler = scheduler;

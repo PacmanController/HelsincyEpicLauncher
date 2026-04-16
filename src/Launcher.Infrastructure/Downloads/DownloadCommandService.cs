@@ -12,10 +12,10 @@ namespace Launcher.Infrastructure.Downloads;
 /// </summary>
 public sealed class DownloadCommandService : IDownloadCommandService
 {
-    private readonly DownloadOrchestrator _orchestrator;
+    private readonly IDownloadOrchestrator _orchestrator;
     private readonly ILogger _logger = Log.ForContext<DownloadCommandService>();
 
-    public DownloadCommandService(DownloadOrchestrator orchestrator)
+    public DownloadCommandService(IDownloadOrchestrator orchestrator)
     {
         _orchestrator = orchestrator;
     }

@@ -12,13 +12,13 @@ namespace Launcher.Infrastructure.Downloads;
 public sealed class DownloadReadService : IDownloadReadService
 {
     private readonly IDownloadTaskRepository _repository;
-    private readonly DownloadScheduler _scheduler;
+    private readonly IDownloadScheduler _scheduler;
     private readonly DownloadRuntimeStore _runtimeStore;
     private readonly ILogger _logger = Log.ForContext<DownloadReadService>();
 
     public DownloadReadService(
         IDownloadTaskRepository repository,
-        DownloadScheduler scheduler,
+        IDownloadScheduler scheduler,
         DownloadRuntimeStore runtimeStore)
     {
         _repository = repository;

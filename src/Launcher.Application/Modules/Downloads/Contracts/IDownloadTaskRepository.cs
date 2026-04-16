@@ -18,7 +18,8 @@ public interface IDownloadTaskRepository
     Task InsertAsync(DownloadTask task, CancellationToken ct = default);
     Task UpdateAsync(DownloadTask task, CancellationToken ct = default);
 
-    // Checkpoint
+    // ── Checkpoint 操作（设计阶段为独立接口，实现中合并于此以降低复杂度） ──
+
     Task SaveCheckpointAsync(DownloadCheckpoint checkpoint, CancellationToken ct = default);
     Task<DownloadCheckpoint?> GetCheckpointAsync(DownloadTaskId taskId, CancellationToken ct = default);
     Task DeleteCheckpointAsync(DownloadTaskId taskId, CancellationToken ct = default);

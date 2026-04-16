@@ -1,6 +1,7 @@
 // Copyright (c) Helsincy. All rights reserved.
 
 using System.Collections.Concurrent;
+using Launcher.Application.Modules.Downloads.Contracts;
 using Launcher.Domain.Downloads;
 using Serilog;
 
@@ -9,7 +10,7 @@ namespace Launcher.Infrastructure.Downloads;
 /// <summary>
 /// 下载调度器。优先级队列 + 并发控制（最大 3 个并行任务）。
 /// </summary>
-public sealed class DownloadScheduler : IDisposable
+internal sealed class DownloadScheduler : IDownloadScheduler
 {
     private readonly SortedSet<QueueEntry> _queue = new(QueueEntryComparer.Instance);
     private readonly ConcurrentDictionary<DownloadTaskId, CancellationTokenSource> _activeTasks = new();
