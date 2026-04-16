@@ -1,31 +1,31 @@
 // Copyright (c) Helsincy. All rights reserved.
 
+using Launcher.Application.Modules.FabLibrary.Contracts;
 using Launcher.Application.Modules.Installations.Contracts;
-using Launcher.Infrastructure.FabLibrary;
 using Launcher.Shared;
 using Serilog;
 
 namespace Launcher.Infrastructure.Installations;
 
 /// <summary>
-/// 修复下载 URL 提供者实现。内部调用 FabApiClient 获取最新 CDN 链接。
+/// 修复下载 URL 提供者实现。通过 IFabDownloadInfoProvider 获取最新 CDN 链接。
 /// 通过依赖倒置：接口在 Installations.Contracts，实现在 Infrastructure 层。
 /// </summary>
 public sealed class RepairDownloadUrlProvider : IRepairDownloadUrlProvider
 {
-    private readonly FabApiClient _fabApiClient;
+    private readonly IFabDownloadInfoProvider _downloadInfoProvider;
     private readonly ILogger _logger = Log.ForContext<RepairDownloadUrlProvider>();
 
-    public RepairDownloadUrlProvider(FabApiClient fabApiClient)
+    public RepairDownloadUrlProvider(IFabDownloadInfoProvider downloadInfoProvider)
     {
-        _fabApiClient = fabApiClient;
+        _downloadInfoProvider = downloadInfoProvider;
     }
 
     public async Task<Result<RepairDownloadInfo>> GetDownloadInfoAsync(string assetId, CancellationToken ct)
     {
         _logger.Information("获取修复下载链接 {AssetId}", assetId);
 
-        var result = await _fabApiClient.GetDownloadInfoAsync(assetId, ct);
+        var result = await _downloadInfoProvider.GetDownloadInfoAsync(assetId, ct);
         if (!result.IsSuccess)
         {
             _logger.Warning("获取修复下载链接失败 {AssetId}: {Error}", assetId, result.Error?.TechnicalMessage);

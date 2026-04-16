@@ -93,6 +93,7 @@ public static class DependencyInjection
         });
         services.AddHttpClient("ThumbnailDownload");
         services.AddSingleton<FabApiClient>();
+        services.AddSingleton<IFabDownloadInfoProvider, FabDownloadInfoProvider>();
         services.AddSingleton<IThumbnailCacheService>(sp =>
         {
             var httpFactory = sp.GetRequiredService<IHttpClientFactory>();

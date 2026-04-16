@@ -2,7 +2,6 @@
 
 using Launcher.Application.Modules.Downloads.Contracts;
 using Launcher.Application.Modules.FabLibrary.Contracts;
-using Launcher.Domain.Downloads;
 using Launcher.Shared;
 using Serilog;
 
@@ -28,14 +27,14 @@ public sealed class FabAssetCommandService : IFabAssetCommandService
         _catalogReadService = catalogReadService;
     }
 
-    public async Task<Result<DownloadTaskId>> DownloadAssetAsync(string assetId, string installPath, CancellationToken ct)
+    public async Task<Result<Guid>> DownloadAssetAsync(string assetId, string installPath, CancellationToken ct)
     {
         _logger.Information("发起 Fab 资产下载 {AssetId} → {Path}", assetId, installPath);
 
         // 获取下载信息
         var downloadInfoResult = await _apiClient.GetDownloadInfoAsync(assetId, ct);
         if (!downloadInfoResult.IsSuccess)
-            return Result.Fail<DownloadTaskId>(downloadInfoResult.Error!);
+            return Result.Fail<Guid>(downloadInfoResult.Error!);
 
         var info = downloadInfoResult.Value!;
 
@@ -58,13 +57,13 @@ public sealed class FabAssetCommandService : IFabAssetCommandService
         if (startResult.IsSuccess)
         {
             _logger.Information("Fab 资产下载已创建 {AssetId}, TaskId={TaskId}", assetId, startResult.Value);
+            return Result.Ok(startResult.Value.Value);
         }
         else
         {
             _logger.Error("Fab 资产下载创建失败 {AssetId}: {Error}", assetId, startResult.Error?.TechnicalMessage);
+            return Result.Fail<Guid>(startResult.Error!);
         }
-
-        return startResult;
     }
 
     public async Task<Result> RefreshCacheAsync(CancellationToken ct)
