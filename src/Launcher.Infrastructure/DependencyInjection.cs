@@ -43,6 +43,7 @@ public static class DependencyInjection
         services.AddSingleton<SettingsService>();
         services.AddSingleton<ISettingsCommandService>(sp => sp.GetRequiredService<SettingsService>());
         services.AddSingleton<ISettingsReadService>(sp => sp.GetRequiredService<SettingsService>());
+        services.AddSingleton<IThemePersistenceService, FileThemePersistenceService>();
 
         // 数据库
         services.AddSingleton<IDbConnectionFactory, SqliteConnectionFactory>();
