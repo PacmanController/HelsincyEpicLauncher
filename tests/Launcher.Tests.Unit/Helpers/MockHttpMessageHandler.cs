@@ -15,6 +15,9 @@ internal sealed class MockHttpMessageHandler : HttpMessageHandler
     /// <summary>已接收到的请求列表</summary>
     public List<HttpRequestMessage> ReceivedRequests { get; } = [];
 
+    /// <summary>已接收到的请求体快照</summary>
+    public List<string?> ReceivedRequestBodies { get; } = [];
+
     /// <summary>入队一个预设响应</summary>
     public void EnqueueResponse(HttpStatusCode statusCode, string? jsonContent = null)
     {
@@ -34,6 +37,9 @@ internal sealed class MockHttpMessageHandler : HttpMessageHandler
         HttpRequestMessage request, CancellationToken cancellationToken)
     {
         ReceivedRequests.Add(request);
+        ReceivedRequestBodies.Add(request.Content is null
+            ? null
+            : request.Content.ReadAsStringAsync(cancellationToken).GetAwaiter().GetResult());
 
         if (cancellationToken.IsCancellationRequested)
             return Task.FromCanceled<HttpResponseMessage>(cancellationToken);

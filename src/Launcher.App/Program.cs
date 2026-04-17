@@ -1,7 +1,6 @@
 // Copyright (c) Helsincy. All rights reserved.
 
 using Microsoft.UI.Dispatching;
-using Microsoft.UI.Xaml;
 using System.Runtime.InteropServices;
 using WinRT;
 
@@ -15,9 +14,18 @@ public static class Program
     [DllImport("Microsoft.ui.xaml.dll")]
     private static extern void XamlCheckProcessRequirements();
 
+    internal static string InitialLaunchArguments { get; private set; } = string.Empty;
+
     [STAThread]
     public static void Main(string[] args)
     {
+        InitialLaunchArguments = SingleInstanceCoordinator.ResolveProcessLaunchArguments(args);
+
+        if (!SingleInstanceCoordinator.EnsureSingleInstance(InitialLaunchArguments))
+        {
+            return;
+        }
+
         XamlCheckProcessRequirements();
         ComWrappersSupport.InitializeComWrappers();
         Microsoft.UI.Xaml.Application.Start(p =>

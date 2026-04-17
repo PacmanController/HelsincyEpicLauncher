@@ -271,6 +271,21 @@
 | 协议注意 | 当前仓库交互式入口是 `id/authorize + redirect_uri`，而外部成熟链路更接近 `id/login?redirectUrl=.../id/api/redirect?...`；两者不应在实现时继续混用为同一种 code exchange 逻辑 |
 | 测试方向 | 后续实现应新增：authorization code 输入解析测试、两步式登录编排测试、输入取消测试、错误 code 失败测试 |
 
+### 2026-04-17 — Auth 宿主第二实例自动回调转发运行态修复
+
+**状态**: 已完成并通过运行态验收 | **测试**: 226/226 通过 | **运行态结论**: 主实例已可自动消费第二实例转发的回调 URL 候选负载
+
+| 类别 | 详细内容 |
+|------|----------|
+| 初始现象 | 手动运行第二实例并传入假的回调 URL 时，主日志只出现“收到第二实例的激活请求”，没有进入自动回调消费链路 |
+| 第一层根因 | 原宿主实现把第二实例参数解析放在 `App.OnLaunched(...)` 阶段，当前 WinUI/宿主组合下该阶段并不可靠地携带第二实例启动参数 |
+| 第二层根因 | 运行态排查中还确认了一个容易误判的问题：`dotnet test` 不会构建 `Launcher.App.csproj`，因此如果只跑测试不显式构建 App，可执行文件会继续停留在旧版本，导致运行态结论失真 |
+| 正式修复 | 新增 `SingleInstanceCoordinator`，把单实例判定与第二实例命名管道转发前移到 `Program.Main`；第二实例参数解析统一改为 `Main(args)` → 原始命令行 → `Environment.GetCommandLineArgs()` 三层兜底 |
+| 宿主职责 | `App.xaml.cs` 现在只负责主实例的命名管道监听、回调候选负载入队和现有 Auth 完成登录链路调度，不再承担第二实例的单实例判定 |
+| 运行态验证 | 在显式执行 `dotnet build src/Launcher.App/Launcher.App.csproj` 后，使用第二实例传入假的 `https://localhost/auth/callback?code=...`，主日志已出现“收到第二实例转发的认证回调候选负载，激活主窗口并尝试自动完成登录” |
+| 终态证据 | 同一轮日志继续出现“提交 authorization code/回调链接，完成登录流程”→“开始使用 authorization code 完成登录”→“Token 交换失败（fake code not found）”，说明宿主自动回调链路已真正打通，失败只来自故意使用的伪造授权码 |
+| 操作约束 | 后续凡是改动 `src/Launcher.App/*` 且要做真实运行态验收时，必须额外执行 `dotnet build src/Launcher.App/Launcher.App.csproj`，不能只依赖 `dotnet test` |
+
 ### 2026-04-17 — 两步式 authorization code 登录实现
 
 **状态**: 已完成实现 | **验证**: `dotnet build` 通过，`runTests` 220/220 通过
@@ -384,6 +399,35 @@
 | 运行时验证 | 最新应用日志已验证 Fab 回退分页在 page 1~5 上按需扩展：20 → 40 → 60 → 144；`Fab 页面初始化完成：20 个资产，1 个分类` 与后续 `Fab Epic 回退搜索完成` 日志均正常出现 |
 | 真实链路补充验证 | 由于当前环境中的 `Launcher.App` 未暴露可用 UIA 顶级窗口，无法做自动化点击；改为复用当前本机会话直接调用应用自身 `IFabCatalogReadService`，实测成功完成 owned 搜索→详情读取，命中资产 `3e9c264b685f43edabb1bcb000a2330d`（`Modular Scifi Season 2 Starter Bundle`），返回了标签和兼容引擎版本 |
 | 剩余缺口 | 详情后端链路已通过真实会话验证，但详情页的最终视觉/UI 呈现仍需在可交互桌面环境中手动点开确认 |
+
+### 2026-04-17 — 基于 Legendary 参考实现的 Auth 下一阶段设计定稿
+
+**状态**: 已完成文档设计，未开始实现 | **输出**: [13-LegendaryAuthReferenceDesign.md](13-LegendaryAuthReferenceDesign.md)
+
+| 类别 | 详细内容 |
+|------|----------|
+| 设计依据 | 本轮重新对齐了 `02-ArchitecturePrinciples.md`、`04-ModuleDependencyRules.md`、`12-AICollaboration.md`、`14-AntiPatterns.md` 以及 Auth / Shell 模块文档，再把 Legendary 的实际登录实现映射到本仓库边界 |
+| 外部事实 | Legendary 的成熟登录链路证明：当前 clientId 的交互式主线更接近 Epic 托管登录页 + Epic HTTPS 重定向端点，而不是 localhost loopback 回调 |
+| 方案结论 | 当前仓库不应继续把 loopback 当成唯一设计中心；下一阶段应保留已上线的 authorization code 兜底链路，并先在 Auth 内部补上“登录结果归一化 + grant 执行策略”抽象 |
+| 边界控制 | 设计明确要求 Shell 只负责触发和收集输入、App 只负责转发候选回调负载、Auth 负责归一处理和 token exchange；不新增万能 Auth 管理器，不把协议细节泄漏到页面或宿主 |
+| 契约策略 | 近期不建议立刻重命名 `IAuthService`；仅在真正进入 `exchange_code` 或 EGL refresh token 导入实现时，才升级为窄 DTO 契约 |
+| 日志要求 | 文档补充了分层日志边界、推荐事件名和脱敏规则，要求后续实现必须记录“来源 / 输入类型 / grant / 结果”，同时禁止记录原始 code、完整回调 URL 和 token |
+| 下一步 | 若继续实现，优先执行 Phase L1：仅在 Auth 内部引入 completion kind / grant executor 与结构化日志归一；WebView2 exchange code 和 EGL 导入都应作为后续独立立项选择 |
+
+### 2026-04-17 — Auth Phase L1：内部 completion 抽象与结构化日志归一
+
+**状态**: 已完成实现 | **验证**: `dotnet test HelsincyEpicLauncher.slnx --no-restore` 230/230 通过（另有 1 条既有 `CA1816` 警告）
+
+| 类别 | 详细内容 |
+|------|----------|
+| 内部模型 | `Launcher.Infrastructure.Auth` 新增 `EpicLoginResultKind` / `EpicLoginResult`，把手工 authorization code、完整回调 URL、loopback callback 统一归一成 Auth 内部结果对象 |
+| grant 执行器 | 新增 `IEpicLoginGrantExecutor` 与 `AuthorizationCodeGrantExecutor`；当前先落 `authorization_code` 一条执行器，但结构上已经为后续 `exchange_code` 和外部 refresh token 导入预留位置 |
+| 主链路收敛 | `EpicOAuthHandler` 不再直接在方法里手写授权码换 token，而是先记录归一结果，再匹配 grant 执行器；loopback callback 与手工兜底路径现在共享同一条 token exchange 执行逻辑 |
+| 契约控制 | `IAuthService` 未发生公共签名变化；Shell / App 无需适配，符合“先在 Auth 内部收口、暂不扩大跨模块契约”的设计目标 |
+| 日志归一 | Auth 层新增结构化日志：登录结果归一日志记录 `Kind` / `Source` / `IncludeTokenType` / `HasRedirectUri`；grant 执行器记录 token exchange 的 started / failed / succeeded，并保持 provider 错误体脱敏 |
+| 测试补充 | `EpicOAuthProtocolTests` 新增归一化结果类型断言；新增 `AuthorizationCodeGrantExecutorTests`，验证普通 authorization code 输入会携带 `token_type=eg1`，而 loopback callback 保留 `redirect_uri` 且不附带 `token_type=eg1` |
+| 测试辅助修补 | 为 `MockHttpMessageHandler` 增加请求体快照，避免新单测因 `FormUrlEncodedContent` 在发送后释放而误判失败 |
+| 下一步 | 当前 Phase L1 已完成，下一轮应由用户在 `WebView2 exchange code` 预研与 `EGL refresh token` 导入预研之间做选择；若只是整理当前状态，也可以先提交这一轮改动 |
 
 ---
 

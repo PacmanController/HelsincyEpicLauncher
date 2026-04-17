@@ -1,0 +1,64 @@
+// Copyright (c) Helsincy. All rights reserved.
+
+namespace Launcher.Infrastructure.Auth;
+
+/// <summary>
+/// Auth 模块内部归一化后的登录结果类型。
+/// </summary>
+internal enum EpicLoginResultKind
+{
+    AuthorizationCode,
+    CallbackUrl,
+    ExchangeCode,
+    ExternalRefreshToken,
+}
+
+/// <summary>
+/// Auth 模块内部归一化后的登录结果负载。
+/// </summary>
+internal sealed record EpicLoginResult
+{
+    public required EpicLoginResultKind Kind { get; init; }
+
+    public required string Payload { get; init; }
+
+    public required string Source { get; init; }
+
+    public string? RedirectUri { get; init; }
+
+    public bool IncludeTokenType { get; init; } = true;
+
+    public static EpicLoginResult FromAuthorizationCodeInput(string code)
+    {
+        return new EpicLoginResult
+        {
+            Kind = EpicLoginResultKind.AuthorizationCode,
+            Payload = code,
+            Source = "authorization_code_input",
+            IncludeTokenType = true,
+        };
+    }
+
+    public static EpicLoginResult FromCallbackUrlInput(string code)
+    {
+        return new EpicLoginResult
+        {
+            Kind = EpicLoginResultKind.CallbackUrl,
+            Payload = code,
+            Source = "callback_url_input",
+            IncludeTokenType = true,
+        };
+    }
+
+    public static EpicLoginResult FromLoopbackCallback(string code, string redirectUri)
+    {
+        return new EpicLoginResult
+        {
+            Kind = EpicLoginResultKind.AuthorizationCode,
+            Payload = code,
+            Source = "loopback_callback",
+            RedirectUri = redirectUri,
+            IncludeTokenType = false,
+        };
+    }
+}

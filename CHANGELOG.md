@@ -18,6 +18,10 @@
 - `Launcher.App` 已补宿主层自动回调骨架：若应用后续从启动参数或第二实例转发中收到完整回调 URL 候选负载，会自动调用现有 Auth 完成登录，为未来 loopback/协议回调接入提前打通应用内部链路
 - 已新增一份可直接外发的 Auth loopback 确认模板，覆盖精确 `redirect_uri`、authorize 入口形式和 token exchange 参数矩阵的询问项，减少后续对外沟通往返成本
 - 手动授权码导入入口继续降级为低显著度高级链接，并在打开输入框前增加一次确认，进一步避免把兜底路径误当成默认登录方式
+- Auth 宿主自动回调链路已完成正式修复并通过运行态验收：单实例判定前移到 `Program.Main`，第二实例转发改为直接使用真实进程入口解析参数，并补上原始命令行兜底；显式构建 `Launcher.App.csproj` 后，已实测主实例能够收到第二实例转发的回调 URL 候选负载并自动进入现有 `CompleteAuthorizationCodeLoginAsync(...)` 链路
+- 本轮还确认了一个运行态验收注意点：`dotnet test` 不会刷新 `Launcher.App.exe`，凡是改动 `src/Launcher.App/*` 后要验证真实宿主行为，必须额外执行一次 `dotnet build src/Launcher.App/Launcher.App.csproj`
+- Auth Phase L1 已落地：在 `Launcher.Infrastructure.Auth` 内部新增 `EpicLoginResult` 归一化模型、`IEpicLoginGrantExecutor` 与 `AuthorizationCodeGrantExecutor`，把“手工 authorization code / 回调 URL / loopback callback”统一收敛到同一条 `authorization_code` 执行链路，同时保持 `IAuthService` 公共契约不变
+- Auth 日志已按“输入类型 / 来源 / grant / 结果”归一：登录结果会先记录 `Kind`、`Source`、`IncludeTokenType` 与是否带 `RedirectUri`，随后在 token exchange 阶段输出结构化的 started / failed / succeeded 事件；新增单测覆盖归一化与 grant 执行器，`dotnet test HelsincyEpicLauncher.slnx --no-restore` 当前为 230/230 通过（仍有 1 条既有 `CA1816` 警告，未在本轮处理）
 
 ### Task 8.4 - UI 打磨 + 错误闭环 (2026-04-16)
 - FabLibraryViewModel：新增 HasError/ErrorMessage（搜索/加载失败时设置）、IsOffline（注入 INetworkMonitor 实时跟踪网络状态）；Dispose 时解除 NetworkStatusChanged 订阅

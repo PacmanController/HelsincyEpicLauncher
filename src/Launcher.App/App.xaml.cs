@@ -17,7 +17,6 @@ using Serilog.Formatting.Compact;
 using System.Globalization;
 using System.IO.Pipes;
 using System.Collections.Concurrent;
-using System.Text;
 
 namespace Launcher.App;
 
@@ -26,17 +25,6 @@ namespace Launcher.App;
 /// </summary>
 public partial class App : Microsoft.UI.Xaml.Application
 {
-    /// <summary>
-    /// 单实例互斥体名称
-    /// </summary>
-    private const string MutexName = "HelsincyEpicLauncher_SingleInstance";
-
-    /// <summary>
-    /// 命名管道名称（用于实例间通信）
-    /// </summary>
-    private const string PipeName = "HelsincyEpicLauncher_Pipe";
-
-    private static Mutex? _mutex;
     private MainWindow? _mainWindow;
     private TrayIconManager? _trayIcon;
     private readonly CancellationTokenSource _appCts = new();
@@ -62,15 +50,7 @@ public partial class App : Microsoft.UI.Xaml.Application
     protected override void OnLaunched(LaunchActivatedEventArgs args)
     {
         var appStartSw = System.Diagnostics.Stopwatch.StartNew();
-        var launchArguments = args.Arguments;
-
-        // === Phase 0：单实例检查 + 最小可显示 ===
-        if (!EnsureSingleInstance(launchArguments))
-        {
-            Log.Information("检测到已有实例运行，已通知前台，退出当前实例");
-            Environment.Exit(0);
-            return;
-        }
+        var launchArguments = ResolveLaunchArguments(args);
 
         // 启动管道监听（接收第二实例的激活通知）
         StartPipeListener();
@@ -222,41 +202,6 @@ public partial class App : Microsoft.UI.Xaml.Application
     }
 
     /// <summary>
-    /// 单实例检查。如果已有实例运行，通过命名管道通知并返回 false。
-    /// </summary>
-    private static bool EnsureSingleInstance(string? launchArguments)
-    {
-        _mutex = new Mutex(true, MutexName, out bool isNew);
-        if (!isNew)
-        {
-            // 通知已有实例激活窗口
-            NotifyExistingInstance(launchArguments);
-            return false;
-        }
-        return true;
-    }
-
-    /// <summary>
-    /// 通过命名管道通知已有实例激活主窗口
-    /// </summary>
-    private static void NotifyExistingInstance(string? launchArguments)
-    {
-        try
-        {
-            using var client = new NamedPipeClientStream(".", PipeName, PipeDirection.Out);
-            client.Connect(timeout: 3000);
-            using var writer = new StreamWriter(client);
-            writer.WriteLine(BuildPipeMessage(launchArguments));
-            writer.Flush();
-        }
-        catch (Exception ex)
-        {
-            // 管道通信失败不阻塞退出
-            Log.Warning(ex, "命名管道通知已有实例失败");
-        }
-    }
-
-    /// <summary>
     /// 启动命名管道监听，接收第二实例的激活请求
     /// </summary>
     private void StartPipeListener()
@@ -268,7 +213,7 @@ public partial class App : Microsoft.UI.Xaml.Application
             {
                 try
                 {
-                    using var server = new NamedPipeServerStream(PipeName, PipeDirection.In);
+                    using var server = new NamedPipeServerStream(SingleInstanceCoordinator.PipeName, PipeDirection.In);
                     await server.WaitForConnectionAsync(ct);
 
                     using var reader = new StreamReader(server);
@@ -281,7 +226,7 @@ public partial class App : Microsoft.UI.Xaml.Application
                         continue;
                     }
 
-                    if (TryParsePipeMessage(message, out var payload))
+                    if (SingleInstanceCoordinator.TryParsePipeMessage(message, out var payload))
                     {
                         Log.Information("收到第二实例转发的认证回调候选负载，激活主窗口并尝试自动完成登录");
                         ActivateMainWindow();
@@ -336,7 +281,7 @@ public partial class App : Microsoft.UI.Xaml.Application
 
     private void TryQueueAuthCallbackPayload(string? candidate, string source)
     {
-        if (!TryExtractAuthCallbackPayload(candidate, out var payload))
+        if (!SingleInstanceCoordinator.TryExtractAuthCallbackPayload(candidate, out var payload))
         {
             return;
         }
@@ -379,73 +324,30 @@ public partial class App : Microsoft.UI.Xaml.Application
         }
     }
 
-    private static string BuildPipeMessage(string? launchArguments)
+    private static string ResolveLaunchArguments(LaunchActivatedEventArgs args)
     {
-        if (!TryExtractAuthCallbackPayload(launchArguments, out var payload))
+        if (!string.IsNullOrWhiteSpace(args.Arguments))
         {
-            return "ACTIVATE";
+            return args.Arguments;
         }
 
-        var encodedPayload = Convert.ToBase64String(Encoding.UTF8.GetBytes(payload));
-        return $"AUTH_CALLBACK|{encodedPayload}";
-    }
-
-    private static bool TryParsePipeMessage(string? message, out string payload)
-    {
-        payload = string.Empty;
-
-        if (string.IsNullOrWhiteSpace(message)
-            || !message.StartsWith("AUTH_CALLBACK|", StringComparison.Ordinal))
+        if (!string.IsNullOrWhiteSpace(Program.InitialLaunchArguments))
         {
-            return false;
+            return Program.InitialLaunchArguments;
         }
 
-        var encodedPayload = message["AUTH_CALLBACK|".Length..];
-        if (string.IsNullOrWhiteSpace(encodedPayload))
+        if (SingleInstanceCoordinator.TryExtractArgumentsFromRawCommandLine(Environment.CommandLine, out var rawCommandLineArguments))
         {
-            return false;
+            return rawCommandLineArguments;
         }
 
-        try
+        var commandLineArgs = Environment.GetCommandLineArgs();
+        if (commandLineArgs.Length <= 1)
         {
-            payload = Encoding.UTF8.GetString(Convert.FromBase64String(encodedPayload));
-            return !string.IsNullOrWhiteSpace(payload);
-        }
-        catch (FormatException)
-        {
-            return false;
-        }
-    }
-
-    private static bool TryExtractAuthCallbackPayload(string? candidate, out string payload)
-    {
-        payload = string.Empty;
-        if (string.IsNullOrWhiteSpace(candidate))
-        {
-            return false;
+            return string.Empty;
         }
 
-        var trimmed = candidate.Trim();
-        if (trimmed.Length >= 2 && trimmed[0] == '"' && trimmed[^1] == '"')
-        {
-            trimmed = trimmed[1..^1].Trim();
-        }
-
-        if (string.IsNullOrWhiteSpace(trimmed))
-        {
-            return false;
-        }
-
-        var looksLikeCallbackUrl = trimmed.Contains("://", StringComparison.Ordinal)
-            || trimmed.Contains("code=", StringComparison.OrdinalIgnoreCase);
-
-        if (!looksLikeCallbackUrl)
-        {
-            return false;
-        }
-
-        payload = trimmed;
-        return true;
+        return string.Join(" ", commandLineArgs, 1, commandLineArgs.Length - 1);
     }
 
     /// <summary>

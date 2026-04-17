@@ -52,6 +52,21 @@ public sealed class EpicOAuthProtocolTests
     }
 
     [Fact]
+    public void NormalizeLoginResult_WithPlainCode_Should_ReturnAuthorizationCodeKind()
+    {
+        // Act
+        var result = EpicOAuthProtocol.NormalizeLoginResult("code-123");
+
+        // Assert
+        result.IsSuccess.Should().BeTrue();
+        result.Value!.Kind.Should().Be(EpicLoginResultKind.AuthorizationCode);
+        result.Value.Source.Should().Be("authorization_code_input");
+        result.Value.Payload.Should().Be("code-123");
+        result.Value.IncludeTokenType.Should().BeTrue();
+        result.Value.RedirectUri.Should().BeNull();
+    }
+
+    [Fact]
     public void ExtractAuthorizationCode_WithJsonPayload_Should_Fail()
     {
         // Act
@@ -82,6 +97,21 @@ public sealed class EpicOAuthProtocolTests
         // Assert
         result.IsSuccess.Should().BeTrue();
         result.Value.Should().Be("code-123");
+    }
+
+    [Fact]
+    public void NormalizeLoginResult_WithRedirectUrl_Should_ReturnCallbackUrlKind()
+    {
+        // Act
+        var result = EpicOAuthProtocol.NormalizeLoginResult("https://localhost/launcher/authorized?code=code-123");
+
+        // Assert
+        result.IsSuccess.Should().BeTrue();
+        result.Value!.Kind.Should().Be(EpicLoginResultKind.CallbackUrl);
+        result.Value.Source.Should().Be("callback_url_input");
+        result.Value.Payload.Should().Be("code-123");
+        result.Value.IncludeTokenType.Should().BeTrue();
+        result.Value.RedirectUri.Should().BeNull();
     }
 
     [Fact]

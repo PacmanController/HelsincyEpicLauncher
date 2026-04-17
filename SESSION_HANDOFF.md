@@ -2,14 +2,13 @@
 
 ## 最后更新
 - 时间：2026-04-17
-- 完成任务：Epic 两步式登录验证 + Auth 手动 JSON 输入止血 + Auth 自动回调预研/loopback 清单整理 + Auth 宿主自动回调骨架接入 + Fab 网页端接口误接入修补 + Fab owned 回退统一到流式详情/分页链路
+- 完成任务：Epic 两步式登录验证 + Auth 手动 JSON 输入止血 + Auth 自动回调预研/loopback 清单整理 + Auth 宿主自动回调骨架接入 + Auth 第二实例自动回调转发正式修复并完成运行态验收 + Legendary 参考实现分析与下一阶段 Auth 设计文档定稿 + Auth Phase L1 内部 completion 抽象与结构化日志归一 + Fab 网页端接口误接入修补 + Fab owned 回退统一到流式详情/分页链路
 
 ## 当前项目状态
 - 最后成功编译：是（dotnet build 成功）
-- 最后测试结果：全部通过（226/226）
-- 当前重点：**Auth 当前已把“完整 JSON 粘贴”从默认登录路径移出；自动回调预研也已完成，且 `Launcher.App` 已具备从启动参数/第二实例转发中自动消费回调 URL 候选负载的宿主骨架。当前最现实的主线仍是拿到 Epic 真实可用的 loopback `redirect_uri`。Fab 已拥有资产流式回退仍保持可用，详情/分页链路已验证**
-- 当前重点：**Auth 当前已把“完整 JSON 粘贴”从默认登录路径移出；手动导入入口也已进一步降级为低显著度高级链接并增加确认步骤。自动回调预研已完成，且 `Launcher.App` 已具备从启动参数/第二实例转发中自动消费回调 URL 候选负载的宿主骨架。当前最现实的主线仍是拿到 Epic 真实可用的 loopback `redirect_uri`。Fab 已拥有资产流式回退仍保持可用，详情/分页链路已验证**
-- 下一个任务：**使用 `docs/review/12-AuthRedirectInquiryTemplate.md` 向 Epic/外部确认精确可用的 redirect 配置与 token exchange 参数矩阵；若确认可用，则直接把当前宿主骨架接上真实 loopback 来源并做端到端验收；若确认彻底不支持 loopback，再进入宿主级非 loopback 回调方案设计。之后再继续 EngineVersions 正式后端迁移**
+- 最后测试结果：全部通过（230/230，另有 1 条既有 `CA1816` 警告）
+- 当前重点：**Auth Phase L1 已完成：内部 `EpicLoginResult` 归一化模型、`IEpicLoginGrantExecutor` / `AuthorizationCodeGrantExecutor` 和结构化日志已经落地，现有 authorization code / 回调 URL / loopback callback 都已收敛到同一条 `authorization_code` 执行链路，且未扩大 `IAuthService` 公共契约。宿主自动回调骨架继续保留为未来真实回调来源的可复用入口。Fab 已拥有资产流式回退仍保持可用，详情/分页链路已验证**
+- 下一个任务：**Auth 的下一步决策点已经收敛到两项：继续做 `WebView2 exchange code` 预研，或继续做 `EGL refresh token` 导入预研。若只是整理状态，也可以先提交这轮文档 + Auth Phase L1 改动。凡是改动 `src/Launcher.App/*` 后要做真实运行态验收时，仍需显式执行一次 `dotnet build src/Launcher.App/Launcher.App.csproj`，不能只依赖 `dotnet test`。**
 
 ## 审查修复进度
 - 已完成：31/71 项（43.7%），6 个 Batch，全部提交推送

@@ -20,10 +20,10 @@ internal sealed class EpicOAuthHandler
     private readonly ILogger _logger = Log.ForContext<EpicOAuthHandler>();
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly EpicOAuthOptions _options;
+    private readonly IEpicLoginGrantExecutor[] _grantExecutors;
 
     // Epic Games OAuth 端点
     private const string AuthorizeUrl = "https://www.epicgames.com/id/authorize";
-    private const string TokenUrl = "https://account-public-service-prod03.ol.epicgames.com/account/api/oauth/token";
     private const string AccountInfoUrl = "https://account-public-service-prod03.ol.epicgames.com/account/api/public/account";
     private const string RevokeUrl = "https://account-public-service-prod03.ol.epicgames.com/account/api/oauth/sessions/kill";
 
@@ -31,6 +31,10 @@ internal sealed class EpicOAuthHandler
     {
         _httpClientFactory = httpClientFactory;
         _options = EpicOAuthOptions.FromConfiguration(configuration);
+        _grantExecutors =
+        [
+            new AuthorizationCodeGrantExecutor(httpClientFactory, _options),
+        ];
     }
 
     /// <summary>
@@ -67,7 +71,9 @@ internal sealed class EpicOAuthHandler
             _logger.Debug("已收到授权码");
 
             // 4. 用授权码换取 Token
-            return await ExchangeCodeAsync(callbackResult.Code!, redirectUri.AbsoluteUri, includeTokenType: false, ct);
+            return await ExecuteLoginResultAsync(
+                EpicLoginResult.FromLoopbackCallback(callbackResult.Code!, redirectUri.AbsoluteUri),
+                ct);
         }
         finally
         {
@@ -99,16 +105,15 @@ internal sealed class EpicOAuthHandler
         }
     }
 
-    public async Task<Result<TokenPair>> ExchangeAuthorizationCodeAsync(string authorizationCodeOrCallbackUrl, CancellationToken ct)
+    public async Task<Result<TokenPair>> CompleteInteractiveLoginAsync(string loginResultPayload, CancellationToken ct)
     {
-        var codeResult = EpicOAuthProtocol.ExtractAuthorizationCode(authorizationCodeOrCallbackUrl);
-        if (!codeResult.IsSuccess)
+        var normalizedResult = EpicOAuthProtocol.NormalizeLoginResult(loginResultPayload);
+        if (!normalizedResult.IsSuccess)
         {
-            return Result.Fail<TokenPair>(codeResult.Error!);
+            return Result.Fail<TokenPair>(normalizedResult.Error!);
         }
 
-        _logger.Information("开始使用 authorization code 完成登录");
-        return await ExchangeCodeAsync(codeResult.Value!, redirectUri: null, includeTokenType: true, ct);
+        return await ExecuteLoginResultAsync(normalizedResult.Value!, ct);
     }
 
     /// <summary>
@@ -129,7 +134,7 @@ internal sealed class EpicOAuthHandler
             {
                 Content = content,
             };
-            AddClientAuth(request);
+            EpicTokenEndpoint.AddClientAuth(request, _options);
 
             using var httpClient = _httpClientFactory.CreateClient("EpicAuth");
             using var response = await httpClient.SendAsync(request, ct);
@@ -148,7 +153,7 @@ internal sealed class EpicOAuthHandler
                 });
             }
 
-            var tokenPair = ParseTokenResponse(body);
+            var tokenPair = EpicTokenEndpoint.ParseTokenResponse(body);
             _logger.Information("Token 已刷新 | ExpiresAt={ExpiresAt}", tokenPair.ExpiresAt);
             return Result.Ok(tokenPair);
         }
@@ -250,85 +255,45 @@ internal sealed class EpicOAuthHandler
         }
     }
 
-    /// <summary>
-    /// 用授权码换取 Token
-    /// </summary>
-    private async Task<Result<TokenPair>> ExchangeCodeAsync(string code, string? redirectUri, bool includeTokenType, CancellationToken ct)
+    private async Task<Result<TokenPair>> ExecuteLoginResultAsync(EpicLoginResult loginResult, CancellationToken ct)
     {
-        try
+        _logger.Information(
+            "Auth 登录结果已归一 | Kind={Kind} | Source={Source} | IncludeTokenType={IncludeTokenType} | HasRedirectUri={HasRedirectUri}",
+            loginResult.Kind,
+            loginResult.Source,
+            loginResult.IncludeTokenType,
+            !string.IsNullOrWhiteSpace(loginResult.RedirectUri));
+
+        foreach (var executor in _grantExecutors)
         {
-            var parameters = new Dictionary<string, string>
+            if (!executor.CanExecute(loginResult.Kind))
             {
-                ["grant_type"] = "authorization_code",
-                ["code"] = code,
-            };
-
-            if (!string.IsNullOrWhiteSpace(redirectUri))
-            {
-                parameters["redirect_uri"] = redirectUri;
+                continue;
             }
 
-            if (includeTokenType)
-            {
-                parameters["token_type"] = "eg1";
-            }
-
-            var content = new FormUrlEncodedContent(parameters);
-
-            using var request = new HttpRequestMessage(HttpMethod.Post, TokenUrl)
-            {
-                Content = content,
-            };
-            AddClientAuth(request);
-
-            using var httpClient = _httpClientFactory.CreateClient("EpicAuth");
-            using var response = await httpClient.SendAsync(request, ct);
-            var body = await response.Content.ReadAsStringAsync(ct);
-
-            if (!response.IsSuccessStatusCode)
-            {
-                _logger.Warning("Token 交换失败 | StatusCode={Code} | Body={Body}", response.StatusCode, LogSanitizer.SanitizeHttpBody(body, 400));
-                return Result.Fail<TokenPair>(CreateTokenExchangeError(response.StatusCode, body));
-            }
-
-            var tokenPair = ParseTokenResponse(body);
-            _logger.Information("Token 交换成功 | ExpiresAt={ExpiresAt}", tokenPair.ExpiresAt);
-            return Result.Ok(tokenPair);
+            _logger.Information(
+                "Auth grant 执行器已匹配 | Kind={Kind} | Source={Source} | GrantType={GrantType}",
+                loginResult.Kind,
+                loginResult.Source,
+                executor.GrantType);
+            return await executor.ExecuteAsync(loginResult, ct);
         }
-        catch (Exception ex) when (ex is not OperationCanceledException)
+
+        _logger.Warning(
+            "未找到可处理的 Auth 登录结果执行器 | Kind={Kind} | Source={Source}",
+            loginResult.Kind,
+            loginResult.Source);
+        return Result.Fail<TokenPair>(new Error
         {
-            _logger.Error(ex, "Token 交换异常");
-            return Result.Fail<TokenPair>(new Error
-            {
-                Code = "AUTH_TOKEN_EXCHANGE_EXCEPTION",
-                UserMessage = "登录过程中出错，请重试",
-                TechnicalMessage = LogSanitizer.SanitizeHttpBody(ex.Message),
-                CanRetry = true,
-                Severity = ErrorSeverity.Error,
-            });
-        }
+            Code = "AUTH_LOGIN_RESULT_UNSUPPORTED",
+            UserMessage = "当前登录结果类型暂不支持",
+            TechnicalMessage = $"No login grant executor can handle kind '{loginResult.Kind}' from source '{loginResult.Source}'.",
+            CanRetry = false,
+            Severity = ErrorSeverity.Error,
+        });
     }
 
-    private static TokenPair ParseTokenResponse(string json)
-    {
-        using var doc = JsonDocument.Parse(json);
-        var root = doc.RootElement;
-
-        var accessToken = root.GetProperty("access_token").GetString() ?? string.Empty;
-        var refreshToken = root.TryGetProperty("refresh_token", out var rt) ? rt.GetString() ?? string.Empty : string.Empty;
-        var expiresIn = root.GetProperty("expires_in").GetInt32();
-        var accountId = root.TryGetProperty("account_id", out var aid) ? aid.GetString() ?? string.Empty : string.Empty;
-        var displayName = root.TryGetProperty("displayName", out var dn) ? dn.GetString() ?? string.Empty : string.Empty;
-
-        return new TokenPair
-        {
-            AccessToken = accessToken,
-            RefreshToken = refreshToken,
-            ExpiresAt = DateTime.UtcNow.AddSeconds(expiresIn),
-            AccountId = accountId,
-            DisplayName = displayName,
-        };
-    }
+    private const string TokenUrl = EpicTokenEndpoint.TokenUrl;
 
     private static void OpenBrowser(string url)
     {
@@ -337,70 +302,6 @@ internal sealed class EpicOAuthHandler
             FileName = url,
             UseShellExecute = true,
         });
-    }
-
-    private static Error CreateTokenExchangeError(HttpStatusCode statusCode, string body)
-    {
-        var technicalMessage = $"HTTP {(int)statusCode}: {LogSanitizer.SanitizeHttpBody(body, 400)}";
-        if (TryParseProviderError(body, out var providerErrorCode, out var providerError))
-        {
-            if (string.Equals(providerErrorCode, "errors.com.epicgames.account.oauth.authorization_code_not_found", StringComparison.OrdinalIgnoreCase)
-                || string.Equals(providerError, "invalid_grant", StringComparison.OrdinalIgnoreCase))
-            {
-                return new Error
-                {
-                    Code = "AUTH_AUTHORIZATION_CODE_EXPIRED",
-                    UserMessage = "授权码无效、已过期或已使用。请回到浏览器重新完成登录，并立即粘贴新的 authorizationCode。",
-                    TechnicalMessage = technicalMessage,
-                    CanRetry = true,
-                    Severity = ErrorSeverity.Warning,
-                };
-            }
-        }
-
-        return new Error
-        {
-            Code = "AUTH_TOKEN_EXCHANGE_FAILED",
-            UserMessage = "登录授权失败，请重试",
-            TechnicalMessage = technicalMessage,
-            CanRetry = true,
-            Severity = ErrorSeverity.Error,
-        };
-    }
-
-    private void AddClientAuth(HttpRequestMessage request)
-    {
-        var credentials = Convert.ToBase64String(
-            System.Text.Encoding.ASCII.GetBytes($"{_options.ClientId}:{_options.ClientSecret}"));
-        request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Basic", credentials);
-    }
-
-    private static bool TryParseProviderError(string body, out string? errorCode, out string? error)
-    {
-        errorCode = null;
-        error = null;
-
-        if (string.IsNullOrWhiteSpace(body))
-        {
-            return false;
-        }
-
-        try
-        {
-            using var doc = JsonDocument.Parse(body);
-            var root = doc.RootElement;
-            errorCode = root.TryGetProperty("errorCode", out var errorCodeElement)
-                ? errorCodeElement.GetString()
-                : null;
-            error = root.TryGetProperty("error", out var errorElement)
-                ? errorElement.GetString()
-                : null;
-            return !string.IsNullOrWhiteSpace(errorCode) || !string.IsNullOrWhiteSpace(error);
-        }
-        catch (JsonException)
-        {
-            return false;
-        }
     }
 
     private static Result<(HttpListener Listener, Uri RedirectUri)> StartListener(string redirectUriText)

@@ -7,7 +7,7 @@ using Launcher.Shared.Logging;
 namespace Launcher.Infrastructure.Auth;
 
 /// <summary>
-/// Epic OAuth 协议辅助逻辑。负责授权 URL 构建与授权码/回调 URL 解析。
+/// Epic OAuth 协议辅助逻辑。负责授权 URL 构建与登录结果归一化。
 /// </summary>
 internal static class EpicOAuthProtocol
 {
@@ -23,11 +23,11 @@ internal static class EpicOAuthProtocol
         return $"https://www.epicgames.com/id/login?redirectUrl={encodedRedirectUrl}";
     }
 
-    public static Result<string> ExtractAuthorizationCode(string rawInput)
+    public static Result<EpicLoginResult> NormalizeLoginResult(string rawInput)
     {
         if (string.IsNullOrWhiteSpace(rawInput))
         {
-            return Result.Fail<string>(CreateError(
+            return Result.Fail<EpicLoginResult>(CreateError(
                 "AUTH_AUTHORIZATION_CODE_INVALID",
                 "未识别到有效的授权码，请重试",
                 "Authorization code input is empty.",
@@ -38,7 +38,7 @@ internal static class EpicOAuthProtocol
         var trimmedInput = rawInput.Trim();
         if (trimmedInput.Length > 0 && trimmedInput[0] == '{')
         {
-            return Result.Fail<string>(CreateError(
+            return Result.Fail<EpicLoginResult>(CreateError(
                 "AUTH_AUTHORIZATION_CODE_JSON_NOT_ALLOWED",
                 "请不要粘贴完整响应内容；只粘贴 authorizationCode 或完整回调链接。",
                 "Manual authorization code input must not contain a full JSON payload.",
@@ -53,12 +53,12 @@ internal static class EpicOAuthProtocol
 
         if (TryExtractCodeFromUrl(trimmedInput, out var codeFromUrl))
         {
-            return Result.Ok(codeFromUrl!);
+            return Result.Ok(EpicLoginResult.FromCallbackUrlInput(codeFromUrl!));
         }
 
         if (string.IsNullOrWhiteSpace(trimmedInput))
         {
-            return Result.Fail<string>(CreateError(
+            return Result.Fail<EpicLoginResult>(CreateError(
                 "AUTH_AUTHORIZATION_CODE_INVALID",
                 "未识别到有效的授权码，请重试",
                 "Authorization code input is blank after trimming.",
@@ -66,7 +66,18 @@ internal static class EpicOAuthProtocol
                 severity: ErrorSeverity.Warning));
         }
 
-        return Result.Ok(trimmedInput);
+        return Result.Ok(EpicLoginResult.FromAuthorizationCodeInput(trimmedInput));
+    }
+
+    public static Result<string> ExtractAuthorizationCode(string rawInput)
+    {
+        var result = NormalizeLoginResult(rawInput);
+        if (!result.IsSuccess)
+        {
+            return Result.Fail<string>(result.Error!);
+        }
+
+        return Result.Ok(result.Value!.Payload);
     }
 
     public static EpicOAuthCallbackResult ParseCallback(string actualPath, NameValueCollection query, string expectedPath, string expectedState)

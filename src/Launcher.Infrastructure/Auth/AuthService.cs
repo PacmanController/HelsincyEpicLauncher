@@ -55,15 +55,15 @@ internal sealed class AuthService : IAuthService, IDisposable
     public Task<Result> StartAuthorizationCodeLoginAsync(CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
-        _logger.Information("开始 authorization code 登录流程");
+        _logger.Information("Auth login started | Mode={Mode}", "system_browser_manual_fallback");
         return Task.FromResult(_oauthHandler.StartAuthorizationCodeLogin());
     }
 
     public async Task<Result<AuthUserInfo>> CompleteAuthorizationCodeLoginAsync(string authorizationCodeOrCallbackUrl, CancellationToken ct = default)
     {
-        _logger.Information("提交 authorization code/回调链接，完成登录流程");
+        _logger.Information("Auth login completion requested | AcceptedKinds={AcceptedKinds}", "authorization_code,callback_url");
 
-        var tokenResult = await _oauthHandler.ExchangeAuthorizationCodeAsync(authorizationCodeOrCallbackUrl, ct);
+        var tokenResult = await _oauthHandler.CompleteInteractiveLoginAsync(authorizationCodeOrCallbackUrl, ct);
         if (!tokenResult.IsSuccess)
         {
             return Result.Fail<AuthUserInfo>(tokenResult.Error!);
