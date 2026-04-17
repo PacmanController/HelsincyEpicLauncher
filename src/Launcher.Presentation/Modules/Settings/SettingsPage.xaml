@@ -5,8 +5,15 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     Background="Transparent">
 
-    <ScrollViewer Padding="36,24,36,24">
-        <StackPanel Spacing="8" MaxWidth="800">
+    <ScrollViewer
+        x:Name="PageScrollViewer"
+        Padding="36,24,36,24"
+        HorizontalScrollMode="Disabled"
+        HorizontalScrollBarVisibility="Disabled"
+        SizeChanged="PageScrollViewer_SizeChanged">
+        <Grid x:Name="ViewportHost">
+            <Grid MaxWidth="800" HorizontalAlignment="Stretch">
+                <StackPanel Spacing="8">
 
             <!-- 页面标题 -->
             <TextBlock
@@ -177,7 +184,14 @@
                     <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
                 <TextBlock Grid.Row="0" Text="默认下载路径" Style="{StaticResource BodyStrongTextBlockStyle}" Margin="0,0,0,4" />
-                <TextBox Grid.Row="1" Text="{x:Bind ViewModel.DownloadPath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="留空使用默认位置" />
+                <Grid Grid.Row="1" ColumnSpacing="12">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBox Grid.Column="0" Text="{x:Bind ViewModel.DownloadPath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="留空使用默认位置" />
+                    <Button Grid.Column="1" Content="选择文件夹" MinWidth="120" Click="DownloadPathBrowseButton_Click" />
+                </Grid>
             </Grid>
 
             <!-- 安装路径 -->
@@ -192,7 +206,14 @@
                     <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
                 <TextBlock Grid.Row="0" Text="默认安装路径" Style="{StaticResource BodyStrongTextBlockStyle}" Margin="0,0,0,4" />
-                <TextBox Grid.Row="1" Text="{x:Bind ViewModel.InstallPath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="留空使用默认位置" />
+                <Grid Grid.Row="1" ColumnSpacing="12">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBox Grid.Column="0" Text="{x:Bind ViewModel.InstallPath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="留空使用默认位置" />
+                    <Button Grid.Column="1" Content="选择文件夹" MinWidth="120" Click="InstallPathBrowseButton_Click" />
+                </Grid>
             </Grid>
 
             <!-- 缓存路径 -->
@@ -207,7 +228,14 @@
                     <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
                 <TextBlock Grid.Row="0" Text="缓存路径" Style="{StaticResource BodyStrongTextBlockStyle}" Margin="0,0,0,4" />
-                <TextBox Grid.Row="1" Text="{x:Bind ViewModel.CachePath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="留空使用默认位置" />
+                <Grid Grid.Row="1" ColumnSpacing="12">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBox Grid.Column="0" Text="{x:Bind ViewModel.CachePath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="留空使用默认位置" />
+                    <Button Grid.Column="1" Content="选择文件夹" MinWidth="120" Click="CachePathBrowseButton_Click" />
+                </Grid>
             </Grid>
 
             <!-- 保存路径配置按钮 -->
@@ -320,8 +348,10 @@
                     Command="{x:Bind ViewModel.ResetToDefaultsCommand}" />
             </Grid>
 
-            <!-- 底部留白 -->
-            <Border Height="24" />
-        </StackPanel>
+                <!-- 底部留白 -->
+                <Border Height="24" />
+            </StackPanel>
+            </Grid>
+        </Grid>
     </ScrollViewer>
 </Page>

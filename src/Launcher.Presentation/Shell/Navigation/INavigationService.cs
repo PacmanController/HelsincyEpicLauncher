@@ -13,6 +13,9 @@ public interface INavigationService
     /// <summary>返回上一页</summary>
     Task GoBackAsync();
 
+    /// <summary>重新加载当前页</summary>
+    Task ReloadCurrentAsync();
+
     /// <summary>是否可以返回</summary>
     bool CanGoBack { get; }
 

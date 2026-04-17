@@ -16,6 +16,9 @@ public interface IDialogService
     /// <summary>显示错误对话框</summary>
     Task ShowErrorAsync(string title, string message, bool canRetry = false);
 
+    /// <summary>显示单文本输入对话框</summary>
+    Task<string?> ShowTextInputAsync(string title, string message, string placeholder = "", string confirmText = "确认", string cancelText = "取消");
+
     /// <summary>显示自定义内容对话框（后续任务中实现）</summary>
     Task<TResult?> ShowCustomAsync<TResult>(object dialogViewModel);
 }

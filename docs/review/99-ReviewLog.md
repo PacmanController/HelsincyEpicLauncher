@@ -177,6 +177,156 @@
 | 文档同步 | `docs/16-WindowsAppRuntimeRepair.md` 更新为当前 1.8 目标版本与正式修复方案 |
 | 验证结果 | `dotnet build HelsincyEpicLauncher.slnx` 通过；`runTests` 211/211 通过；应用窗口成功拉起，进程存活，主窗口标题为 `HelsincyEpicLauncher`，日志目录已创建 |
 
+### 2026-04-16 — Settings 路径交互与响应式布局修复
+
+**状态**: 工作区已实现 | **验证**: 211/211 通过
+
+| 类别 | 详细内容 |
+|------|----------|
+| 用户体验 | 设置页的默认下载路径、默认安装路径、缓存路径新增“选择文件夹”按钮，用户不再只能手工输入 |
+| 架构边界 | 文件夹选择器能力限制在 Presentation 层；Settings.Contracts 仍只传递路径字符串，未新增跨层 UI 耦合 |
+| 组合根适配 | 由 App 组合根提供主窗口句柄适配给 Presentation 使用，避免 Presentation 直接依赖 App 内部窗口实现 |
+| 保存链路 | 选择文件夹后仅更新 SettingsViewModel 页面状态，最终保存仍通过 `ISettingsCommandService.UpdatePathConfigAsync()` 进入既有配置持久化链路 |
+| 异常处理 | 若系统文件夹选择器打开失败，则在 Settings 页面通过现有对话框服务反馈错误，并保留手动输入作为降级路径 |
+| 布局问题根因 | SettingsPage 使用可横向滚动的 `ScrollViewer` 承载表单，当路径行变宽后，宽窗口场景会让内容获得错误的水平测量/滚动上下文，导致整块表单右移并发生裁切 |
+| 布局修复策略 | 禁用横向滚动与横向滚动条，并把 Settings 主表单的内容宿主宽度显式钉到 `ScrollViewer` 当前视口宽度；同时保留 `MaxWidth=800` 作为可读宽度上限，避免在桌面宽屏下拉成过宽表单 |
+| 设计原则 | 桌面设置表单的正确做法是响应式重排与宽度约束，不是把整页 UI 做位图式等比例缩放 |
+| 验证结果 | `dotnet build HelsincyEpicLauncher.slnx` 通过；`runTests` 211/211 通过 |
+
+### 2026-04-17 — Auth 登录重定向 URI 不匹配分析
+
+**状态**: 已分析，暂未修复 | **影响**: 首次网页登录不可用
+
+| 类别 | 详细内容 |
+|------|----------|
+| 用户现象 | 点击“登录 Epic Games”后会跳转到 Epic 网页，但浏览器直接显示“抱歉，您使用的重定向 URL 不可用于该客户端”错误页 |
+| 运行时证据 | 本地日志 `app-20260417.log` 记录到 `OAuth 回调监听已启动 | RedirectUri=http://localhost:6780/callback`，3 分钟后 `ShellViewModel` 记录“未收到授权回调，登录已取消” |
+| 代码证据 | `EpicOAuthHandler` 当前固定采用 `http://localhost:{6780-6784}/callback` 作为回调地址，并在授权 URL 与 token 交换请求中都传入该 `redirect_uri` |
+| 根因判断 | 问题发生在 Epic 授权页阶段，说明当前 `ClientId=34a02cf8f4414e29b15921876da36f9a` 对应的客户端配置不接受当前 loopback 回调地址，或未将 `http://localhost:6780/callback` 这类 URI 加入允许列表，因此授权请求在回调前即被拒绝 |
+| 诊断缺口 | 浏览器端已经明确给出“重定向 URL 不可用于该客户端”，但应用侧最终只会在超时后记录“未收到授权回调，登录已取消”，导致真实根因被误折叠为用户取消/超时 |
+| 协议健壮性 | 当前授权 URL 仅包含 `client_id`、`response_type=code`、`redirect_uri`，未看到 `state`/PKCE 等桌面 OAuth 常见防护参数；即便后续修正 redirect URI，也建议一并评估登录链路的协议完整性 |
+| 回调处理缺口 | `WaitForCallbackAsync()` 只读取查询参数中的 `code`，未处理 `error` / `error_description`，也未校验请求路径是否匹配 `/callback`，导致授权失败原因无法准确透传到应用层 |
+| 文档漂移 | Auth 模块文档写明安全存储为 Windows Credential Locker，但当前实现仍是 `FileTokenStore + DPAPI 文件存储`，需要后续确认是文档超前还是实现滞后 |
+| 配置缺口 | 当前仓库中的 `EpicOAuth` 配置只有 `ClientId` / `ClientSecret`，没有任何可配置的 `RedirectUri` 或回调白名单来源，说明代码目前只能“硬编码猜测”回调地址 |
+| 回归判断 | 通过 git 历史检查，loopback 回调方案从 Auth 模块初始实现起就存在，并非本轮 Settings/布局改动引入的新回归 |
+| 影响范围 | 首次网页登录链路不可用；若本地已存在有效 refresh token，则启动时会话恢复路径仍可能正常工作 |
+| 组合结论 | 仅从当前仓库和本地日志可以确认“现有 `http://localhost:6780/callback` 不可用”，但无法可靠推导出该 `ClientId` 的正确允许 URI；正确组合必须回到 Epic 客户端注册信息或历史可用配置来源确认 |
+| 后续修复方向 | 后续修复应优先核对 Epic 客户端注册的允许回调 URI，再决定是将回调地址改为配置驱动的固定白名单 URI，还是更换/调整与 loopback 回调兼容的客户端配置；修复前不应继续依赖“任意 localhost 端口都可用”的假设 |
+
+### 2026-04-17 — Auth 登录链路预修复（配置化 + 协议校验）
+
+**状态**: 已完成预修复，等待外部有效 RedirectUri | **验证**: 216/216 通过
+
+| 类别 | 详细内容 |
+|------|----------|
+| 修复目标 | 在无法立即获得 Epic 客户端注册真值的前提下，先清理 Auth 登录链路中确定存在的实现问题，为后续切入正确 `redirect_uri` 做准备 |
+| 回调策略 | `EpicOAuthHandler` 不再轮询 `6780-6784` 猜测端口，改为读取固定配置的 `EpicOAuth:RedirectUri`；默认值仍为 `http://localhost:6780/callback` |
+| 配置能力 | `appsettings.json` 新增 `EpicOAuth:RedirectUri` 配置项，后续拿到正确 URI 后只需修改配置即可切换，不必再改 Handler 代码 |
+| 协议健壮性 | 授权 URL 新增 `state` 参数；回调处理补充 `state` 校验、路径校验，以及 `error` / `error_description` 解析 |
+| 诊断改进 | 登录链路超时、错误回调、路径错误、配置错误、监听端口占用等情况均会返回更准确的结构化错误码，而不是统一折叠为“登录取消” |
+| 测试补充 | 新增 `EpicOAuthProtocolTests`，覆盖授权 URL 组装、成功回调、Provider 错误、`state` 不匹配、回调路径错误等场景 |
+| 当前限制 | 由于外部 Epic 客户端注册信息仍未知，当前预修复不能单凭仓库内代码保证网页登录立即恢复；后续仍需填入已验证可用的 `redirect_uri` |
+| 验证结果 | `dotnet build HelsincyEpicLauncher.slnx` 通过；`runTests` 216/216 通过 |
+
+### 2026-04-17 — Auth 正式修复方案拆分与验证矩阵
+
+**状态**: 已完成计划拆分，待执行 | **实施文档**: [11-AuthLoginRepairPlan.md](11-AuthLoginRepairPlan.md)
+
+| 类别 | 详细内容 |
+|------|----------|
+| 方案结论 | 正式修复继续以“系统浏览器 + 固定、已验证的 `redirect_uri`”为主链路，不把 SID、第三方辅助站点或外部 CLI 依赖纳入主方案 |
+| 任务拆分 | 新增 `docs/review/11-AuthLoginRepairPlan.md`，按上下文限制拆成 4 个 Phase、10 个小任务；默认尽量只改 Auth，只有手动 code 回退入口属于显式契约升级 |
+| 架构约束 | 方案明确受 02/04/12/14 与 Auth 模块文档约束：禁止 UI 写业务、禁止新增万能 Auth 服务、禁止跨模块直接依赖 Auth 内部实现 |
+| 决策闸门 | 修复前必须先确认 Epic 客户端真实允许的 `redirect_uri`；若结果不是 loopback HTTP + 显式端口，则先在 Auth 内部处理回调策略兼容性，不把协议细节扩散到 Shell/Settings |
+| 主链路修复 | 若拿到可用 loopback URI，优先只切换配置并补足 Auth 自动化验证，再做人工登录、重启恢复、登出清理验收 |
+| 回退策略 | 只有当主链路仍受外部环境影响时，才增加“手动导入 authorization code”作为第二入口；该入口仍由 `IAuthService` 负责会话建立 |
+| 验证矩阵 | 验证矩阵覆盖配置错误、监听拒绝、Provider 错误、`state` / 路径校验、首次登录成功、重启恢复、登出清理，以及条件性的手动 code 回退成功/失败 |
+| 文档同步 | 后续如升级 `IAuthService`，必须同步更新 `docs/05-CoreInterfaces.md`、`docs/06-ModuleDefinitions/Auth.md` 和 `docs/review/99-ReviewLog.md` |
+
+### 2026-04-17 — P0.1 外部 redirect 真值确认 + P0.2 分支锁定
+
+**状态**: 已完成分析，代码尚未开始 | **结论**: 当前分支不再继续 loopback 配置切换
+
+| 类别 | 详细内容 |
+|------|----------|
+| 仓库证据 | 代码库中只能确认当前 `http://localhost:6780/callback` 不可用；git 历史未发现任何第二个已验证可用的 loopback `redirect_uri` |
+| 历史来源 | `EpicOAuth:RedirectUri` 是 2026-04-16 预修复阶段才写入 `appsettings.json` 的默认配置；更早的 Auth 实现依赖代码里 `6780-6784` 端口轮询猜测 |
+| 外部参考 | `legendary` 对同一组客户端凭据 `34a02cf8f4414e29b15921876da36f9a` / `daafbccc737745039dffe53d94fc76cf` 的交互式登录入口，使用 `https://www.epicgames.com/id/login?redirectUrl=https://www.epicgames.com/id/api/redirect?clientId=34a02cf8f4414e29b15921876da36f9a&responseType=code` |
+| 跳转验证 | `https://legendary.gl/epiclogin` 实际也会跳转到相同的 Epic HTTPS 重定向链路，而不是 localhost 回调 |
+| 根因收束 | 说明当前这组客户端凭据的成熟外部用法并不是“浏览器 -> localhost 回调”，所以继续替换 localhost 端口或路径没有证据基础 |
+| P0.2 决策 | 由于当前确认到的有效链路不是 loopback HTTP + 显式端口，正式修复路线切换为：先在 Auth 模块内部设计非 loopback 浏览器结果接收策略，再做代码实现 |
+| 后续动作 | 下一步任务不再是修改 `EpicOAuth:RedirectUri`，而是设计最小范围的 Auth 内部策略改造，并优先评估“手动 authorization code 导入”是否可作为主恢复路径或第一回退路径 |
+
+### 2026-04-17 — 非 loopback 登录最小策略设计
+
+**状态**: 已完成设计，待实现 | **定位**: P0 后续设计收束
+
+| 类别 | 详细内容 |
+|------|----------|
+| 策略结论 | 选择“两步式 authorization code 导入”作为当前 clientId 的最小恢复路线，不引入 WebView2、App 自定义协议注册或第三方 CLI 依赖 |
+| 交互形态 | 保留 Shell 现有登录按钮；点击后由 Auth 打开 Epic 登录页，再由 Presentation 通过输入对话框收集 authorization code 或完整 JSON 响应 |
+| 边界控制 | UI 只负责显示提示和收集文本输入；authorization code 提取、token 交换、账户信息加载、会话保存全部留在 Auth 模块内部 |
+| 契约方向 | 建议把当前单步 `LoginAsync()` 升级为两步式窄接口，避免让 UI 感知 OAuth 协议细节，也避免继续维持一个已经与当前 clientId 不匹配的单步 loopback 契约 |
+| 实现落点 | 主要改动集中在 `IAuthService`、`AuthService`、`EpicOAuthHandler`、`IDialogService`、`DialogService`、`ShellViewModel`，预计不需要改 `ShellPage.xaml` 结构 |
+| 协议注意 | 当前仓库交互式入口是 `id/authorize + redirect_uri`，而外部成熟链路更接近 `id/login?redirectUrl=.../id/api/redirect?...`；两者不应在实现时继续混用为同一种 code exchange 逻辑 |
+| 测试方向 | 后续实现应新增：authorization code 输入解析测试、两步式登录编排测试、输入取消测试、错误 code 失败测试 |
+
+### 2026-04-17 — 两步式 authorization code 登录实现
+
+**状态**: 已完成实现 | **验证**: `dotnet build` 通过，`runTests` 220/220 通过
+
+| 类别 | 详细内容 |
+|------|----------|
+| 契约升级 | `IAuthService` 从单步 `LoginAsync()` 升级为两步式 `StartAuthorizationCodeLoginAsync()` + `CompleteAuthorizationCodeLoginAsync()` |
+| Auth 实现 | `AuthService` 现在分离“打开 Epic 登录页”和“提交 authorization code 完成登录”两段流程；会话保存、账户信息加载、登出、恢复链路保持在 Auth 内部 |
+| 协议处理 | `EpicOAuthProtocol` 新增 Epic 登录 URL 组装和用户输入 authorization code 提取能力；允许用户粘贴纯 code 或完整 JSON 响应 |
+| 交互入口 | `EpicOAuthHandler` 新增非 loopback 浏览器登录入口，并为 authorization code 导入流单独执行 token 交换；该流不再强行绑定 loopback `redirect_uri` |
+| Shell 交互 | Shell 保留原有登录按钮，不新增常驻输入框；点击后由对话框服务收集 authorization code 文本，ViewModel 仅负责触发和显示错误，不解析协议字段 |
+| 对话框能力 | `IDialogService` / `DialogService` 新增窄文本输入能力，避免回落到未实现的泛型自定义弹窗 |
+| 文档同步 | 已同步更新 `docs/05-CoreInterfaces.md` 和 `docs/06-ModuleDefinitions/Auth.md`，避免接口文档与实现再次漂移 |
+| 测试补充 | `EpicOAuthProtocolTests` 新增 Epic 登录 URL 组装、plain code 提取、JSON code 提取、JSON 缺失字段失败等测试 |
+| 架构检查 | 本次改动仍遵守边界：Presentation 不直接依赖 Auth 内部实现，Auth 协议细节没有泄漏到 Shell / Settings / App，未新增万能服务 |
+
+### 2026-04-17 — authorization code 输入与错误处理加固
+
+**状态**: 已完成实现 | **目标**: 缩短人工登录链路的排错时间并提高输入兼容性
+
+| 类别 | 详细内容 |
+|------|----------|
+| 输入兼容 | `EpicOAuthProtocol` 现在除 plain code / 完整 JSON 外，还支持从 `redirectUrl` 字段或直接粘贴的完整回调 URL 中提取 `code` 参数 |
+| 用户提示 | Shell 登录对话框改为优先提示用户粘贴 `authorizationCode`，并明确说明授权码一次性且可能很快失效 |
+| 失败映射 | `EpicOAuthHandler` 对 token 交换阶段的 provider 返回体做最小解析；遇到 `authorization_code_not_found` / `invalid_grant` 时，不再统一提示“登录授权失败”，而是明确提示用户重新获取新的授权码 |
+| 诊断日志 | token 刷新、token 交换、账户信息获取失败日志现在会携带脱敏后的响应体，便于继续定位 Epic 服务端拒绝原因 |
+| 测试补充 | 新增 `redirectUrl` / 完整 URL 提取授权码测试，防止未来回退到只支持单一输入形态 |
+
+### 2026-04-17 — Fab/引擎版本网页端接口误接入根因确认
+
+**状态**: 根因已确认，已完成错误识别修补 | **影响**: Fab 在线目录暂不可用；引擎版本旧网页端入口同样不可靠
+
+| 类别 | 详细内容 |
+|------|----------|
+| 运行时证据 | Fab 搜索 403 的响应体不是业务 JSON，而是 `www.fab.com` 返回的 Cloudflare `Just a moment...` 挑战页；说明请求根本没有到达真实目录后端 |
+| 结论收束 | 当前 `https://www.fab.com/api/v1/assets/*` 是网页站点受保护入口，不是适合桌面客户端直连的稳定服务 API；登录成功并不等于可以直接访问该入口 |
+| 扩展发现 | `https://www.unrealengine.com/api/engine/versions` 也表现为同类站点口问题；而同一 access token 调用 `launcher-public-service-prod06.ol.epicgames.com` 的官方 launcher 服务端点可以返回 200，证明 token 本身有效 |
+| 立即修补 | `FabApiClient` / `EngineVersionApiClient` 新增网站挑战页识别逻辑；命中 Cloudflare challenge 时不再把问题误报为普通 403，而是明确提示“网页登录成功，但当前客户端仍在访问网页端受保护入口” |
+| 后续方向 | Fab 在线目录需要切换到 Epic 可供客户端使用的后端服务链路；在找到正式目录接口前，当前版本只能做清晰降级，不能再把 `www.fab.com/api` 当作可持续方案 |
+
+### 2026-04-17 — Fab owned 回退收敛到统一流式详情/分页链路
+
+**状态**: 已完成代码收敛，分页运行时已验证 | **验证**: `dotnet build` 通过，`dotnet test` 226/226 通过
+
+| 类别 | 详细内容 |
+|------|----------|
+| 架构约束 | 先重新核对 `02-ArchitecturePrinciples.md`、`04-ModuleDependencyRules.md`、`14-AntiPatterns.md` 与 `06-ModuleDefinitions/FabLibrary.md`，确保改动继续局限在 FabLibrary 既有边界内，不把业务逻辑塞回页面 Code-Behind，也不新增万能回退服务 |
+| 核心重构 | `EpicOwnedFabCatalogClient` 由“首屏预览 + 详情/全量独立路径”改为 requirement-driven owned 记录提供器；搜索分页、详情读取、owned 全量枚举统一通过 `EnsureOwnedRecordsAsync()` 扩展同一份缓存 |
+| 分页语义 | 搜索后续页不再强制等待 owned 全量枚举完成，而是按 `Page * PageSize` 逐步扩展预览窗口；当响应仍有后续数据时，用近似 `TotalCount` 保持 `PagedResult.HasNextPage` 继续成立 |
+| 详情语义 | 详情回退不再走独立的“全量 owned 列表先拉完”路径，而是按 `assetId` 需求在流式预览中命中目标资产后立即进入 catalog 富化 |
+| Presentation 配合 | `FabAssetDetailViewModel` 补充 `AUTH_NOT_AUTHENTICATED` 软处理，避免会话恢复前把详情页误报为加载失败 |
+| 自动化验证 | 新增单测覆盖两条关键回归：一条验证 `FabCatalogReadService` 在网站 challenge 时会把详情请求切到 owned fallback；一条验证 `EpicOwnedFabCatalogClient` 会随着页码提升逐步扩大预览窗口，而不是退回旧的独立路径 |
+| 运行时验证 | 最新应用日志已验证 Fab 回退分页在 page 1~5 上按需扩展：20 → 40 → 60 → 144；`Fab 页面初始化完成：20 个资产，1 个分类` 与后续 `Fab Epic 回退搜索完成` 日志均正常出现 |
+| 真实链路补充验证 | 由于当前环境中的 `Launcher.App` 未暴露可用 UIA 顶级窗口，无法做自动化点击；改为复用当前本机会话直接调用应用自身 `IFabCatalogReadService`，实测成功完成 owned 搜索→详情读取，命中资产 `3e9c264b685f43edabb1bcb000a2330d`（`Modular Scifi Season 2 Starter Bundle`），返回了标签和兼容引擎版本 |
+| 剩余缺口 | 详情后端链路已通过真实会话验证，但详情页的最终视觉/UI 呈现仍需在可交互桌面环境中手动点开确认 |
+
 ---
 
 ## 修复统计

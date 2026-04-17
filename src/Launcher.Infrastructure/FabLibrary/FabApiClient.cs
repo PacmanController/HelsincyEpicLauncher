@@ -5,9 +5,10 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Launcher.Application.Modules.Auth.Contracts;
-using Launcher.Application.Modules.FabLibrary.Contracts;
 using Launcher.Shared;
+using Launcher.Shared.Logging;
 using Launcher.Infrastructure.Network;
+using Launcher.Application.Modules.FabLibrary.Contracts;
 using Polly;
 using Serilog;
 
@@ -71,18 +72,8 @@ public sealed class FabApiClient
             var tokenResult = await _authService.GetAccessTokenAsync(ct);
             if (!tokenResult.IsSuccess)
             {
-                return Result.Fail<T>(new Error
-                {
-                    Code = "FAB_AUTH_FAILED",
-                    UserMessage = "认证失败，请重新登录",
-                    TechnicalMessage = tokenResult.Error?.TechnicalMessage ?? "Token unavailable",
-                    CanRetry = true,
-                    Severity = ErrorSeverity.Error,
-                });
+                return Result.Fail<T>(tokenResult.Error!);
             }
-
-            using var request = new HttpRequestMessage(HttpMethod.Get, url);
-            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", tokenResult.Value);
 
             var response = await _pipeline.ExecuteAsync(
                 async token =>
@@ -96,12 +87,26 @@ public sealed class FabApiClient
             if (!response.IsSuccessStatusCode)
             {
                 var body = await response.Content.ReadAsStringAsync(ct);
-                _logger.Warning("Fab API 错误 {StatusCode}: {Url} → {Body}", (int)response.StatusCode, url, body);
+
+                if (WebsiteChallengeDetector.IsBlocked(response, body))
+                {
+                    _logger.Warning("Fab API 被网站挑战拦截 {Url}", url);
+                    return Result.Fail<T>(new Error
+                    {
+                        Code = "FAB_BROWSER_CHALLENGE_BLOCKED",
+                        UserMessage = "Fab 在线目录当前被网站浏览器验证拦截，当前版本暂时无法直接加载。这不是你的登录失败，而是客户端仍在访问网页端受保护入口。",
+                        TechnicalMessage = $"HTTP {(int)response.StatusCode}: browser challenge blocked {url}. {LogSanitizer.SanitizeHttpBody(body, 400)}",
+                        CanRetry = false,
+                        Severity = ErrorSeverity.Warning,
+                    });
+                }
+
+                _logger.Warning("Fab API 错误 {StatusCode}: {Url} → {Body}", (int)response.StatusCode, url, LogSanitizer.SanitizeHttpBody(body, 400));
                 return Result.Fail<T>(new Error
                 {
                     Code = $"FAB_HTTP_{(int)response.StatusCode}",
                     UserMessage = $"Fab 服务请求失败 ({(int)response.StatusCode})",
-                    TechnicalMessage = $"HTTP {(int)response.StatusCode}: {body}",
+                    TechnicalMessage = $"HTTP {(int)response.StatusCode}: {LogSanitizer.SanitizeHttpBody(body, 400)}",
                     CanRetry = (int)response.StatusCode >= 500,
                     Severity = ErrorSeverity.Error,
                 });

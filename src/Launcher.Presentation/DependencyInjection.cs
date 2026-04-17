@@ -32,6 +32,9 @@ public static class DependencyInjection
         services.AddSingleton<DialogService>();
         services.AddSingleton<IDialogService>(sp => sp.GetRequiredService<DialogService>());
 
+        // 原生文件夹选择器（由 App 组合根提供窗口句柄）
+        services.AddSingleton<IFolderPickerService, FolderPickerService>();
+
         // 主题切换
         services.AddSingleton<ThemeService>();
 

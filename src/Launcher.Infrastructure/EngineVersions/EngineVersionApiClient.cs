@@ -6,6 +6,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using Launcher.Application.Modules.Auth.Contracts;
 using Launcher.Shared;
+using Launcher.Shared.Logging;
 using Launcher.Infrastructure.Network;
 using Polly;
 using Serilog;
@@ -46,12 +47,27 @@ public sealed class EngineVersionApiClient
 
             if (!response.IsSuccessStatusCode)
             {
-                Logger.Warning("引擎版本列表请求失败: {Status}", response.StatusCode);
+                var body = await response.Content.ReadAsStringAsync(ct);
+
+                if (WebsiteChallengeDetector.IsBlocked(response, body))
+                {
+                    Logger.Warning("引擎版本列表被网站挑战拦截");
+                    return Result.Fail<EngineVersionsResponse>(new Error
+                    {
+                        Code = "ENGINE_BROWSER_CHALLENGE_BLOCKED",
+                        UserMessage = "引擎版本在线列表当前被网站浏览器验证拦截，当前版本暂时无法直接加载。",
+                        TechnicalMessage = $"HTTP {(int)response.StatusCode}: browser challenge blocked engine version endpoint. {LogSanitizer.SanitizeHttpBody(body, 400)}",
+                        CanRetry = false,
+                        Severity = ErrorSeverity.Warning,
+                    });
+                }
+
+                Logger.Warning("引擎版本列表请求失败: {Status} | Body={Body}", response.StatusCode, LogSanitizer.SanitizeHttpBody(body, 400));
                 return Result.Fail<EngineVersionsResponse>(new Error
                 {
                     Code = "ENGINE_API_ERROR",
                     UserMessage = "获取引擎版本列表失败",
-                    TechnicalMessage = $"HTTP {(int)response.StatusCode}",
+                    TechnicalMessage = $"HTTP {(int)response.StatusCode}: {LogSanitizer.SanitizeHttpBody(body, 400)}",
                     CanRetry = true,
                     Severity = ErrorSeverity.Warning,
                 });

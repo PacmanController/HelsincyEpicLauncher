@@ -20,10 +20,18 @@ public partial class ShellViewModel : ObservableObject, IDisposable
     private static readonly ILogger Logger = Log.ForContext<ShellViewModel>();
     private readonly INavigationService _navigationService;
     private readonly IAuthService _authService;
+    private readonly IDialogService _dialogService;
     private readonly IDownloadRuntimeStore _runtimeStore;
     private readonly IAppUpdateService _appUpdateService;
     private readonly INetworkMonitor _networkMonitor;
     private readonly Microsoft.UI.Dispatching.DispatcherQueue _dispatcherQueue;
+    private static readonly HashSet<string> AuthRefreshRoutes =
+    [
+        NavigationRoute.FabLibrary,
+        NavigationRoute.FabAssetDetail,
+        NavigationRoute.EngineVersions,
+        NavigationRoute.Plugins,
+    ];
 
     // === 导航状态 ===
     [ObservableProperty] private string _currentRoute = string.Empty;
@@ -70,12 +78,14 @@ public partial class ShellViewModel : ObservableObject, IDisposable
     public ShellViewModel(
         INavigationService navigationService,
         IAuthService authService,
+        IDialogService dialogService,
         IDownloadRuntimeStore runtimeStore,
         IAppUpdateService appUpdateService,
         INetworkMonitor networkMonitor)
     {
         _navigationService = navigationService;
         _authService = authService;
+        _dialogService = dialogService;
         _runtimeStore = runtimeStore;
         _appUpdateService = appUpdateService;
         _networkMonitor = networkMonitor;
@@ -85,6 +95,7 @@ public partial class ShellViewModel : ObservableObject, IDisposable
         _isNetworkAvailable = _networkMonitor.IsNetworkAvailable;
 
         // 监听会话过期事件
+        _authService.SessionAuthenticated += OnSessionAuthenticated;
         _authService.SessionExpired += OnSessionExpired;
 
         // 监听下载进度，更新状态栏
@@ -110,7 +121,6 @@ public partial class ShellViewModel : ObservableObject, IDisposable
         var result = await _authService.TryRestoreSessionAsync();
         if (result.IsSuccess)
         {
-            UpdateUserInfo(result.Value!);
             Logger.Information("会话已自动恢复 | 用户={Name}", result.Value!.DisplayName);
         }
         else
@@ -130,15 +140,36 @@ public partial class ShellViewModel : ObservableObject, IDisposable
 
         try
         {
-            var result = await _authService.LoginAsync();
+            var startResult = await _authService.StartAuthorizationCodeLoginAsync();
+            if (!startResult.IsSuccess)
+            {
+                Logger.Warning("打开 Epic 登录页失败 | Error={Error}", startResult.Error?.UserMessage);
+                await _dialogService.ShowErrorAsync("打开 Epic 登录页失败", startResult.Error?.UserMessage ?? "无法打开 Epic 登录页面，请重试。");
+                return;
+            }
+
+            var input = await _dialogService.ShowTextInputAsync(
+                "完成 Epic 登录",
+                "浏览器已打开。请在 Epic 页面完成登录后，尽快将 authorizationCode 粘贴到这里；若你复制的是完整 JSON 或 redirectUrl，也可以直接粘贴。授权码是一次性的，过期后需要重新获取。",
+                "粘贴 authorizationCode 或完整 JSON",
+                "继续登录",
+                "取消");
+
+            if (string.IsNullOrWhiteSpace(input))
+            {
+                Logger.Information("用户取消 authorization code 输入");
+                return;
+            }
+
+            var result = await _authService.CompleteAuthorizationCodeLoginAsync(input);
             if (result.IsSuccess)
             {
-                UpdateUserInfo(result.Value!);
                 Logger.Information("登录成功 | 用户={Name}", result.Value!.DisplayName);
             }
             else
             {
-                Logger.Warning("登录失败 | Error={Error}", result.Error?.UserMessage);
+                Logger.Warning("登录失败 | Error={Error} | Detail={Detail}", result.Error?.UserMessage, result.Error?.TechnicalMessage);
+                await _dialogService.ShowErrorAsync("登录失败", result.Error?.UserMessage ?? "登录失败，请重试。");
             }
         }
         finally
@@ -178,6 +209,28 @@ public partial class ShellViewModel : ObservableObject, IDisposable
     {
         _dispatcherQueue.TryEnqueue(() => ClearUserInfo());
         Logger.Warning("会话已过期 | 原因={Reason}", evt.Reason);
+    }
+
+    private void OnSessionAuthenticated(AuthUserInfo user)
+    {
+        _dispatcherQueue.TryEnqueue(() =>
+        {
+            UpdateUserInfo(user);
+            _ = RefreshAuthenticatedRouteAsync();
+        });
+    }
+
+    private async Task RefreshAuthenticatedRouteAsync()
+    {
+        var route = _navigationService.CurrentRoute;
+        if (!AuthRefreshRoutes.Contains(route))
+        {
+            return;
+        }
+
+        await _navigationService.ReloadCurrentAsync();
+        UpdateNavigationState();
+        Logger.Information("认证完成后刷新当前页面 | Route={Route}", route);
     }
 
     private void OnUpdateAvailable(UpdateAvailableEvent evt)
@@ -327,6 +380,7 @@ public partial class ShellViewModel : ObservableObject, IDisposable
         if (_disposed) return;
         _disposed = true;
 
+        _authService.SessionAuthenticated -= OnSessionAuthenticated;
         _authService.SessionExpired -= OnSessionExpired;
         _runtimeStore.SnapshotChanged -= OnDownloadSnapshotChanged;
         _runtimeStore.DownloadCompleted -= OnDownloadCompleted;

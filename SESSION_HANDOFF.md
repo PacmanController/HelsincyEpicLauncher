@@ -1,14 +1,14 @@
 # 会话交接文档
 
 ## 最后更新
-- 时间：2026-04-16
-- 完成任务：审查修复 Batch 1-6 (31/71) + 剩余项实施计划编写
+- 时间：2026-04-17
+- 完成任务：Epic 两步式登录验证 + Fab 网页端接口误接入修补 + Fab owned 回退统一到流式详情/分页链路
 
 ## 当前项目状态
-- 最后成功编译：是（dotnet build 9 个项目零错误零警告）
-- 最后测试结果：全部通过（176/176）
-- 当前 Phase：**Phase 8 全部完成（Task 8.1 ~ 8.4）**
-- 下一个任务：**审查修复 Phase 1（Downloads 接口提取）**
+- 最后成功编译：是（dotnet build 成功）
+- 最后测试结果：全部通过（226/226）
+- 当前重点：**Auth 登录态与 Fab 已拥有资产流式回退均已可用；Fab 首页、后续翻页已在运行时验证走同一条 Epic library + catalog 回退链路，详情代码路径已收敛、单测覆盖完成，并已通过当前机器真实会话执行一次搜索→详情链路验证**
+- 下一个任务：**如果需要补最后一层观感验收，可在真实窗口中手动点开 Fab 详情页确认 UI 展示；之后继续把 EngineVersions 从网页端入口迁移到 Epic 可供客户端使用的正式后端接口**
 
 ## 审查修复进度
 - 已完成：31/71 项（43.7%），6 个 Batch，全部提交推送
@@ -127,9 +127,12 @@
 - Presentation DI 注册 InstallationsViewModel
 
 ## 遗留问题
+- FabLibrary 当前使用的 `https://www.fab.com/api/v1/assets/*` 不是稳定客户端服务接口；运行时会收到 Cloudflare `Just a moment...` 挑战页。当前已修正错误提示，但在线目录本身仍需后续迁移到 Epic 后端服务链路
+- EngineVersions 当前 `https://www.unrealengine.com/api/engine/versions` 同样属于网页端入口；已补网站挑战识别。另已验证 `launcher-public-service-prod06.ol.epicgames.com/launcher/api/public/assets/Windows?label=Live` 可被当前 token 正常访问，可作为后续迁移基础
+- 当前环境下 `Launcher.App` 窗口未暴露可用的 UIA 顶级窗口/控件树，无法自动化点击详情卡片；已改为使用本机真实登录态直接调用 `IFabCatalogReadService` 完成一次 owned 搜索→详情读取，证明详情回退后端链路可用，但 UI 视觉层仍需人工点开做最后验收
 - RepairAsync 目前仅检测损坏文件并记录日志，实际重新下载损坏文件需要 Downloads 模块配合（后续任务）
 - "下载完自动安装"开关功能需要 DownloadCompletedEvent → InstallAsync 联动，留待后续整合
-- Fab API 客户端目前无单元测试（HTTP 客户端需 mock HttpClient，留待集成测试或后续补充）
+- FabApiClient 已有单元测试；本轮新增了 Cloudflare challenge 场景，避免把网站防护拦截误判为普通 403
 
 ## 下一个任务的输入
 - Phase 8：自动更新 + 打磨

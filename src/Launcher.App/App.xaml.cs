@@ -8,6 +8,7 @@ using Launcher.Background;
 using Launcher.Domain;
 using Launcher.Infrastructure;
 using Launcher.Presentation;
+using Launcher.Presentation.Shell;
 using Launcher.Shared.Configuration;
 using Launcher.Shared.Logging;
 using Serilog;
@@ -74,6 +75,7 @@ public partial class App : Microsoft.UI.Xaml.Application
 
         // 创建主窗口
         _mainWindow = new MainWindow();
+        Services.GetRequiredService<MainWindowHandleProvider>().SetMainWindow(_mainWindow);
 
         // 初始化系统托盘
         InitializeTrayIcon();
@@ -328,6 +330,8 @@ public partial class App : Microsoft.UI.Xaml.Application
         services.AddInfrastructure();
         services.AddPresentation();
         services.AddBackground();
+        services.AddSingleton<MainWindowHandleProvider>();
+        services.AddSingleton<IWindowHandleProvider>(sp => sp.GetRequiredService<MainWindowHandleProvider>());
 
         Services = services.BuildServiceProvider();
 

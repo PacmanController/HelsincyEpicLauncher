@@ -19,6 +19,7 @@ internal sealed class EpicOAuthHandler
 {
     private readonly ILogger _logger = Log.ForContext<EpicOAuthHandler>();
     private readonly IHttpClientFactory _httpClientFactory;
+    private readonly EpicOAuthOptions _options;
 
     // Epic Games OAuth 端点
     private const string AuthorizeUrl = "https://www.epicgames.com/id/authorize";
@@ -26,19 +27,10 @@ internal sealed class EpicOAuthHandler
     private const string AccountInfoUrl = "https://account-public-service-prod03.ol.epicgames.com/account/api/public/account";
     private const string RevokeUrl = "https://account-public-service-prod03.ol.epicgames.com/account/api/oauth/sessions/kill";
 
-    // 本地回调配置（端口自动分配避免冲突）
-    private const string RedirectPath = "/callback";
-    private const string LoopbackHost = "http://localhost";
-
-    // 客户端凭据（从配置文件加载）
-    private readonly string _clientId;
-    private readonly string _clientSecret;
-
     public EpicOAuthHandler(IHttpClientFactory httpClientFactory, IConfiguration configuration)
     {
         _httpClientFactory = httpClientFactory;
-        _clientId = configuration["EpicOAuth:ClientId"] ?? throw new InvalidOperationException("EpicOAuth:ClientId not configured");
-        _clientSecret = configuration["EpicOAuth:ClientSecret"] ?? throw new InvalidOperationException("EpicOAuth:ClientSecret not configured");
+        _options = EpicOAuthOptions.FromConfiguration(configuration);
     }
 
     /// <summary>
@@ -47,40 +39,76 @@ internal sealed class EpicOAuthHandler
     public async Task<Result<TokenPair>> AuthorizeAsync(CancellationToken ct)
     {
         // 1. 启动本地 HTTP 监听器
-        var (listener, redirectUri) = StartListener();
-        _logger.Information("OAuth 回调监听已启动 | RedirectUri={Uri}", redirectUri);
+        var listenerResult = StartListener(_options.RedirectUri);
+        if (!listenerResult.IsSuccess)
+        {
+            return Result.Fail<TokenPair>(listenerResult.Error!);
+        }
+
+        var (listener, redirectUri) = listenerResult.Value!;
+        _logger.Information("OAuth 回调监听已启动 | RedirectUri={Uri}", redirectUri.AbsoluteUri);
 
         try
         {
+            var state = Guid.NewGuid().ToString("N");
+
             // 2. 构建授权 URL 并打开浏览器
-            var authUrl = $"{AuthorizeUrl}?client_id={_clientId}&response_type=code&redirect_uri={Uri.EscapeDataString(redirectUri)}";
+            var authUrl = EpicOAuthProtocol.BuildAuthorizeUrl(AuthorizeUrl, _options.ClientId, redirectUri.AbsoluteUri, state);
             OpenBrowser(authUrl);
-            _logger.Debug("已打开浏览器进行 OAuth 授权");
+            _logger.Debug("已打开浏览器进行 OAuth 授权 | Url={Url}", LogSanitizer.SanitizeUrl(authUrl));
 
             // 3. 等待回调获取 authorization_code
-            var code = await WaitForCallbackAsync(listener, ct);
-            if (code is null)
+            var callbackResult = await WaitForCallbackAsync(listener, redirectUri, state, ct);
+            if (!callbackResult.IsSuccess)
             {
-                return Result.Fail<TokenPair>(new Error
-                {
-                    Code = "AUTH_CALLBACK_FAILED",
-                    UserMessage = "未收到授权回调，登录已取消",
-                    TechnicalMessage = "OAuth callback returned null code",
-                    CanRetry = true,
-                    Severity = ErrorSeverity.Warning,
-                });
+                return Result.Fail<TokenPair>(callbackResult.Error!);
             }
 
             _logger.Debug("已收到授权码");
 
             // 4. 用授权码换取 Token
-            return await ExchangeCodeAsync(code, redirectUri, ct);
+            return await ExchangeCodeAsync(callbackResult.Code!, redirectUri.AbsoluteUri, includeTokenType: false, ct);
         }
         finally
         {
             listener.Stop();
             listener.Close();
         }
+    }
+
+    public Result StartAuthorizationCodeLogin()
+    {
+        try
+        {
+            var loginUrl = EpicOAuthProtocol.BuildAuthorizationCodeLoginUrl(_options.ClientId);
+            OpenBrowser(loginUrl);
+            _logger.Information("已打开 authorization code 登录页面 | Url={Url}", LogSanitizer.SanitizeUrl(loginUrl));
+            return Result.Ok();
+        }
+        catch (Exception ex)
+        {
+            _logger.Error(ex, "打开 authorization code 登录页面失败");
+            return Result.Fail(new Error
+            {
+                Code = "AUTH_LOGIN_PAGE_OPEN_FAILED",
+                UserMessage = "无法打开 Epic 登录页面，请重试",
+                TechnicalMessage = LogSanitizer.SanitizeHttpBody(ex.Message),
+                CanRetry = true,
+                Severity = ErrorSeverity.Error,
+            });
+        }
+    }
+
+    public async Task<Result<TokenPair>> ExchangeAuthorizationCodeAsync(string authorizationCodeOrJson, CancellationToken ct)
+    {
+        var codeResult = EpicOAuthProtocol.ExtractAuthorizationCode(authorizationCodeOrJson);
+        if (!codeResult.IsSuccess)
+        {
+            return Result.Fail<TokenPair>(codeResult.Error!);
+        }
+
+        _logger.Information("开始使用 authorization code 完成登录");
+        return await ExchangeCodeAsync(codeResult.Value!, redirectUri: null, includeTokenType: true, ct);
     }
 
     /// <summary>
@@ -94,6 +122,7 @@ internal sealed class EpicOAuthHandler
             {
                 ["grant_type"] = "refresh_token",
                 ["refresh_token"] = refreshToken,
+                ["token_type"] = "eg1",
             });
 
             using var request = new HttpRequestMessage(HttpMethod.Post, TokenUrl)
@@ -108,7 +137,7 @@ internal sealed class EpicOAuthHandler
 
             if (!response.IsSuccessStatusCode)
             {
-                _logger.Warning("Token 刷新失败 | StatusCode={Code}", response.StatusCode);
+                _logger.Warning("Token 刷新失败 | StatusCode={Code} | Body={Body}", response.StatusCode, LogSanitizer.SanitizeHttpBody(body, 400));
                 return Result.Fail<TokenPair>(new Error
                 {
                     Code = "AUTH_REFRESH_FAILED",
@@ -153,7 +182,7 @@ internal sealed class EpicOAuthHandler
 
             if (!response.IsSuccessStatusCode)
             {
-                _logger.Warning("获取账户信息失败 | StatusCode={Code}", response.StatusCode);
+                _logger.Warning("获取账户信息失败 | StatusCode={Code} | Body={Body}", response.StatusCode, LogSanitizer.SanitizeHttpBody(body, 400));
                 return Result.Fail<AuthUserInfo>(new Error
                 {
                     Code = "AUTH_ACCOUNT_INFO_FAILED",
@@ -224,16 +253,27 @@ internal sealed class EpicOAuthHandler
     /// <summary>
     /// 用授权码换取 Token
     /// </summary>
-    private async Task<Result<TokenPair>> ExchangeCodeAsync(string code, string redirectUri, CancellationToken ct)
+    private async Task<Result<TokenPair>> ExchangeCodeAsync(string code, string? redirectUri, bool includeTokenType, CancellationToken ct)
     {
         try
         {
-            var content = new FormUrlEncodedContent(new Dictionary<string, string>
+            var parameters = new Dictionary<string, string>
             {
                 ["grant_type"] = "authorization_code",
                 ["code"] = code,
-                ["redirect_uri"] = redirectUri,
-            });
+            };
+
+            if (!string.IsNullOrWhiteSpace(redirectUri))
+            {
+                parameters["redirect_uri"] = redirectUri;
+            }
+
+            if (includeTokenType)
+            {
+                parameters["token_type"] = "eg1";
+            }
+
+            var content = new FormUrlEncodedContent(parameters);
 
             using var request = new HttpRequestMessage(HttpMethod.Post, TokenUrl)
             {
@@ -247,15 +287,8 @@ internal sealed class EpicOAuthHandler
 
             if (!response.IsSuccessStatusCode)
             {
-                _logger.Warning("Token 交换失败 | StatusCode={Code}", response.StatusCode);
-                return Result.Fail<TokenPair>(new Error
-                {
-                    Code = "AUTH_TOKEN_EXCHANGE_FAILED",
-                    UserMessage = "登录授权失败，请重试",
-                    TechnicalMessage = $"HTTP {(int)response.StatusCode}: {LogSanitizer.SanitizeHttpBody(body)}",
-                    CanRetry = true,
-                    Severity = ErrorSeverity.Error,
-                });
+                _logger.Warning("Token 交换失败 | StatusCode={Code} | Body={Body}", response.StatusCode, LogSanitizer.SanitizeHttpBody(body, 400));
+                return Result.Fail<TokenPair>(CreateTokenExchangeError(response.StatusCode, body));
             }
 
             var tokenPair = ParseTokenResponse(body);
@@ -297,60 +330,6 @@ internal sealed class EpicOAuthHandler
         };
     }
 
-    private static (HttpListener listener, string redirectUri) StartListener()
-    {
-        // 尝试使用固定端口，如果不可用则随机分配
-        var ports = new[] { 6780, 6781, 6782, 6783, 6784 };
-        foreach (var port in ports)
-        {
-            try
-            {
-                var listener = new HttpListener();
-                var prefix = $"{LoopbackHost}:{port}/";
-                listener.Prefixes.Add(prefix);
-                listener.Start();
-                return (listener, $"{LoopbackHost}:{port}{RedirectPath}");
-            }
-            catch (HttpListenerException)
-            {
-                // 端口被占用，尝试下一个
-            }
-        }
-
-        throw new InvalidOperationException("无法找到可用端口启动 OAuth 回调监听器 (tried ports 6780-6784)");
-    }
-
-    private static async Task<string?> WaitForCallbackAsync(HttpListener listener, CancellationToken ct)
-    {
-        // 设置超时（3 分钟）
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-        cts.CancelAfter(TimeSpan.FromMinutes(3));
-
-        try
-        {
-            var context = await listener.GetContextAsync().WaitAsync(cts.Token);
-            var request = context.Request;
-            var code = request.QueryString["code"];
-
-            // 返回成功页面
-            var responseHtml = code is not null
-                ? "<html><body><h1>登录成功！</h1><p>请返回 HelsincyEpicLauncher。此页面可以关闭。</p></body></html>"
-                : "<html><body><h1>登录失败</h1><p>未收到授权码。请重试。</p></body></html>";
-
-            var responseBytes = System.Text.Encoding.UTF8.GetBytes(responseHtml);
-            context.Response.ContentType = "text/html; charset=utf-8";
-            context.Response.ContentLength64 = responseBytes.Length;
-            await context.Response.OutputStream.WriteAsync(responseBytes, cts.Token);
-            context.Response.Close();
-
-            return code;
-        }
-        catch (OperationCanceledException)
-        {
-            return null;
-        }
-    }
-
     private static void OpenBrowser(string url)
     {
         Process.Start(new ProcessStartInfo
@@ -360,10 +339,171 @@ internal sealed class EpicOAuthHandler
         });
     }
 
+    private static Error CreateTokenExchangeError(HttpStatusCode statusCode, string body)
+    {
+        var technicalMessage = $"HTTP {(int)statusCode}: {LogSanitizer.SanitizeHttpBody(body, 400)}";
+        if (TryParseProviderError(body, out var providerErrorCode, out var providerError))
+        {
+            if (string.Equals(providerErrorCode, "errors.com.epicgames.account.oauth.authorization_code_not_found", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(providerError, "invalid_grant", StringComparison.OrdinalIgnoreCase))
+            {
+                return new Error
+                {
+                    Code = "AUTH_AUTHORIZATION_CODE_EXPIRED",
+                    UserMessage = "授权码无效、已过期或已使用。请回到浏览器重新完成登录，并立即粘贴新的 authorizationCode。",
+                    TechnicalMessage = technicalMessage,
+                    CanRetry = true,
+                    Severity = ErrorSeverity.Warning,
+                };
+            }
+        }
+
+        return new Error
+        {
+            Code = "AUTH_TOKEN_EXCHANGE_FAILED",
+            UserMessage = "登录授权失败，请重试",
+            TechnicalMessage = technicalMessage,
+            CanRetry = true,
+            Severity = ErrorSeverity.Error,
+        };
+    }
+
     private void AddClientAuth(HttpRequestMessage request)
     {
         var credentials = Convert.ToBase64String(
-            System.Text.Encoding.ASCII.GetBytes($"{_clientId}:{_clientSecret}"));
+            System.Text.Encoding.ASCII.GetBytes($"{_options.ClientId}:{_options.ClientSecret}"));
         request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Basic", credentials);
+    }
+
+    private static bool TryParseProviderError(string body, out string? errorCode, out string? error)
+    {
+        errorCode = null;
+        error = null;
+
+        if (string.IsNullOrWhiteSpace(body))
+        {
+            return false;
+        }
+
+        try
+        {
+            using var doc = JsonDocument.Parse(body);
+            var root = doc.RootElement;
+            errorCode = root.TryGetProperty("errorCode", out var errorCodeElement)
+                ? errorCodeElement.GetString()
+                : null;
+            error = root.TryGetProperty("error", out var errorElement)
+                ? errorElement.GetString()
+                : null;
+            return !string.IsNullOrWhiteSpace(errorCode) || !string.IsNullOrWhiteSpace(error);
+        }
+        catch (JsonException)
+        {
+            return false;
+        }
+    }
+
+    private static Result<(HttpListener Listener, Uri RedirectUri)> StartListener(string redirectUriText)
+    {
+        if (!Uri.TryCreate(redirectUriText, UriKind.Absolute, out var redirectUri))
+        {
+            return Result.Fail<(HttpListener Listener, Uri RedirectUri)>(new Error
+            {
+                Code = "AUTH_REDIRECT_CONFIG_INVALID",
+                UserMessage = "OAuth 回调地址配置无效",
+                TechnicalMessage = $"Invalid redirect URI configuration: {redirectUriText}",
+                CanRetry = false,
+                Severity = ErrorSeverity.Error,
+            });
+        }
+
+        if (!string.Equals(redirectUri.Scheme, Uri.UriSchemeHttp, StringComparison.OrdinalIgnoreCase) || !redirectUri.IsLoopback)
+        {
+            return Result.Fail<(HttpListener Listener, Uri RedirectUri)>(new Error
+            {
+                Code = "AUTH_REDIRECT_UNSUPPORTED",
+                UserMessage = "当前版本仅支持本地回调地址登录",
+                TechnicalMessage = $"Unsupported redirect URI for current loopback listener strategy: {redirectUri}",
+                CanRetry = false,
+                Severity = ErrorSeverity.Error,
+            });
+        }
+
+        if (redirectUri.IsDefaultPort)
+        {
+            return Result.Fail<(HttpListener Listener, Uri RedirectUri)>(new Error
+            {
+                Code = "AUTH_REDIRECT_PORT_MISSING",
+                UserMessage = "OAuth 回调地址缺少端口配置",
+                TechnicalMessage = $"Redirect URI must use an explicit loopback port: {redirectUri}",
+                CanRetry = false,
+                Severity = ErrorSeverity.Error,
+            });
+        }
+
+        try
+        {
+            var listener = new HttpListener();
+            var prefix = redirectUri.GetLeftPart(UriPartial.Authority);
+            if (!prefix.EndsWith('/'))
+            {
+                prefix += "/";
+            }
+
+            listener.Prefixes.Add(prefix);
+            listener.Start();
+
+            return Result.Ok((listener, redirectUri));
+        }
+        catch (HttpListenerException ex)
+        {
+            return Result.Fail<(HttpListener Listener, Uri RedirectUri)>(new Error
+            {
+                Code = "AUTH_REDIRECT_LISTENER_FAILED",
+                UserMessage = "无法启动本地登录回调监听，请检查端口占用后重试",
+                TechnicalMessage = LogSanitizer.SanitizeHttpBody(ex.Message),
+                CanRetry = true,
+                Severity = ErrorSeverity.Warning,
+                InnerException = ex,
+            });
+        }
+    }
+
+    private async Task<EpicOAuthCallbackResult> WaitForCallbackAsync(HttpListener listener, Uri redirectUri, string expectedState, CancellationToken ct)
+    {
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        cts.CancelAfter(_options.CallbackTimeout);
+
+        try
+        {
+            var context = await listener.GetContextAsync().WaitAsync(cts.Token);
+            var request = context.Request;
+            var callbackResult = EpicOAuthProtocol.ParseCallback(request.Url?.AbsolutePath ?? string.Empty, request.QueryString, redirectUri.AbsolutePath, expectedState);
+
+            var responseHtml = BuildBrowserResponse(callbackResult);
+            var responseBytes = System.Text.Encoding.UTF8.GetBytes(responseHtml);
+            context.Response.ContentType = "text/html; charset=utf-8";
+            context.Response.ContentLength64 = responseBytes.Length;
+            await context.Response.OutputStream.WriteAsync(responseBytes, cts.Token);
+            context.Response.Close();
+
+            return callbackResult;
+        }
+        catch (OperationCanceledException)
+        {
+            return EpicOAuthCallbackResult.Fail(new Error
+            {
+                Code = "AUTH_CALLBACK_TIMED_OUT",
+                UserMessage = "登录超时，未收到授权回调",
+                TechnicalMessage = $"No OAuth callback received within {_options.CallbackTimeout.TotalMinutes:F0} minutes.",
+                CanRetry = true,
+                Severity = ErrorSeverity.Warning,
+            }, "登录超时", "未收到授权回调。请返回应用后重试。");
+        }
+    }
+
+    private static string BuildBrowserResponse(EpicOAuthCallbackResult result)
+    {
+        return $"<html><body><h1>{WebUtility.HtmlEncode(result.BrowserTitle)}</h1><p>{WebUtility.HtmlEncode(result.BrowserMessage)}</p></body></html>";
     }
 }

@@ -22,6 +22,7 @@ public sealed class NavigationService : INavigationService
 
     private Frame? _frame;
     private string _currentRoute = string.Empty;
+    private object? _currentParameter;
     private readonly Stack<string> _history = new();
 
     /// <summary>
@@ -79,8 +80,34 @@ public sealed class NavigationService : INavigationService
             _history.Push(_currentRoute);
         }
         _currentRoute = route;
+        _currentParameter = parameter;
 
         Logger.Information("导航到 {Route}", route);
+        return Task.CompletedTask;
+    }
+
+    public Task ReloadCurrentAsync()
+    {
+        if (_frame is null)
+        {
+            Logger.Warning("重新加载失败：Frame 未设置");
+            return Task.CompletedTask;
+        }
+
+        if (string.IsNullOrEmpty(_currentRoute))
+        {
+            Logger.Debug("重新加载跳过：当前没有激活路由");
+            return Task.CompletedTask;
+        }
+
+        if (!RouteMap.TryGetValue(_currentRoute, out var pageType))
+        {
+            Logger.Warning("重新加载失败：未知当前路由 {Route}", _currentRoute);
+            return Task.CompletedTask;
+        }
+
+        _frame.Navigate(pageType, _currentParameter, new EntranceNavigationTransitionInfo());
+        Logger.Information("重新加载当前路由 {Route}", _currentRoute);
         return Task.CompletedTask;
     }
 

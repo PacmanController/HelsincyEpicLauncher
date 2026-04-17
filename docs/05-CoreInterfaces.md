@@ -99,8 +99,11 @@ public interface IAuthService
     /// <summary>当前登录用户信息</summary>
     AuthUserInfo? CurrentUser { get; }
 
-    /// <summary>启动 OAuth 登录流程</summary>
-    Task<Result<AuthUserInfo>> LoginAsync(CancellationToken ct);
+    /// <summary>打开 Epic 登录页，启动 authorization code 登录流程</summary>
+    Task<Result> StartAuthorizationCodeLoginAsync(CancellationToken ct);
+
+    /// <summary>提交 authorization code 或完整 JSON 响应，完成登录</summary>
+    Task<Result<AuthUserInfo>> CompleteAuthorizationCodeLoginAsync(string authorizationCodeOrJson, CancellationToken ct);
 
     /// <summary>登出</summary>
     Task<Result> LogoutAsync(CancellationToken ct);

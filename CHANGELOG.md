@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+### Auth/Fab 运行时接入修正 (2026-04-17)
+- 确认 Epic 登录已可建立本地登录态；FabLibrary 失败的根因不是未登录，而是当前 `https://www.fab.com/api/v1/assets/*` 接入命中了 Cloudflare `Just a moment...` 挑战页
+- `FabApiClient`：新增网站挑战页识别；命中时返回 `FAB_BROWSER_CHALLENGE_BLOCKED`，用户提示明确为“当前客户端仍在访问网页端受保护入口”，不再误报普通 403
+- `EngineVersionApiClient`：对同类网站挑战页做相同识别，返回 `ENGINE_BROWSER_CHALLENGE_BLOCKED`，避免继续把站点拦截误判为普通接口失败
+- 错误日志统一改为记录脱敏后的响应体，便于区分业务错误和站点防护拦截
+- `FabApiClientTests` 新增 Cloudflare challenge 场景，防止后续回退成普通 403 提示
+- `FabCatalogReadService` 接入 `EpicOwnedFabCatalogClient` 已拥有资产回退；Fab 首页在网页端 API 被拦截时，改走 Epic library + catalog 后端
+- `EpicOwnedFabCatalogClient` 进一步收敛为同一套 requirement-driven 流式回退：Fab 首页、后续翻页、详情页都共享同一条 owned 记录扩展链路，不再把详情/翻页走独立的全量路径
+- 最新运行时日志已验证 Fab 回退分页可按需扩展到 page 2~5；新增单测覆盖“详情 challenge 回退到 owned fallback”与“后续页按需扩展预览窗口”两条回归场景
+- 额外完成一次真实会话链路验证：在当前机器已恢复的 Epic 登录态下，直接通过 `IFabCatalogReadService` 成功执行 owned 搜索→详情读取，实测拿到资产 `3e9c264b685f43edabb1bcb000a2330d`（`Modular Scifi Season 2 Starter Bundle`）的详情数据
+
 ### Task 8.4 - UI 打磨 + 错误闭环 (2026-04-16)
 - FabLibraryViewModel：新增 HasError/ErrorMessage（搜索/加载失败时设置）、IsOffline（注入 INetworkMonitor 实时跟踪网络状态）；Dispose 时解除 NetworkStatusChanged 订阅
 - FabLibraryPage.xaml：新增离线提示 InfoBar（IsOffline=true 时显示）+ 错误 InfoBar（HasError=true 时显示，含重试按钮）

@@ -19,6 +19,18 @@
 - UI 渲染
 - 配置文件的物理存储实现（由 Infrastructure 处理）
 
+### UI 交互边界
+
+- 路径配置的文件夹选择器属于 Presentation 层纯交互能力
+- Settings.Contracts 只承载最终路径字符串，不暴露文件夹选择器或窗口句柄等 UI 实现细节
+- App 组合根可以为 Presentation 提供窗口上下文适配，但不得把该实现反向泄漏到 Application / Infrastructure
+
+### UI 布局约束
+
+- 设置页主表单必须受当前视口宽度约束，禁止依赖横向滚动来显示主要配置项
+- 宽窗口下保持可读宽度上限，窄窗口下优先通过布局重排或控件自适应处理，而不是做整页等比例缩放
+- 当表单承载在 `ScrollViewer` 中时，必须额外保证内部内容宿主绑定到当前视口宽度，避免长文本或宽控件把整页布局整体撑偏
+
 ### 依赖
 
 | 依赖目标 | 用途 |
@@ -88,6 +100,9 @@ public sealed record ConfigChangedEvent(string Section, object NewConfig);
 
 ```
 1. 用户在设置页面修改配置
+    a. 路径类配置可手动输入，或通过系统文件夹选择器回填
+    b. 文件夹选择器仅更新 ViewModel 页面状态，不直接写配置文件
+    c. 页面布局必须始终保证配置项在当前视口内完整可见，不允许核心交互控件横向裁切
 2. SettingsViewModel 调用 ISettingsCommandService.UpdateXxxAsync()
 3. 验证新配置合法性
 4. 写入 user.settings.json

@@ -11,9 +11,10 @@ namespace Launcher.Infrastructure.FabLibrary;
 /// <summary>
 /// Fab 目录查询服务实现。包含 5 分钟内存缓存。
 /// </summary>
-public sealed class FabCatalogReadService : IFabCatalogReadService
+internal sealed class FabCatalogReadService : IFabCatalogReadService
 {
     private readonly FabApiClient _apiClient;
+    private readonly EpicOwnedFabCatalogClient _ownedFallbackClient;
     private readonly IInstallReadService _installReadService;
     private readonly ILogger _logger = Log.ForContext<FabCatalogReadService>();
 
@@ -21,9 +22,10 @@ public sealed class FabCatalogReadService : IFabCatalogReadService
     private readonly ConcurrentDictionary<string, (DateTime CachedAt, object Result)> _cache = new();
     private static readonly TimeSpan CacheDuration = TimeSpan.FromMinutes(5);
 
-    public FabCatalogReadService(FabApiClient apiClient, IInstallReadService installReadService)
+    public FabCatalogReadService(FabApiClient apiClient, EpicOwnedFabCatalogClient ownedFallbackClient, IInstallReadService installReadService)
     {
         _apiClient = apiClient;
+        _ownedFallbackClient = ownedFallbackClient;
         _installReadService = installReadService;
     }
 
@@ -39,7 +41,23 @@ public sealed class FabCatalogReadService : IFabCatalogReadService
 
         var apiResult = await _apiClient.SearchAsync(query, ct);
         if (!apiResult.IsSuccess)
+        {
+            if (string.Equals(apiResult.Error?.Code, "FAB_BROWSER_CHALLENGE_BLOCKED", StringComparison.Ordinal))
+            {
+                _logger.Information("Fab 搜索切换到 Epic 后端已拥有资产回退 | Keyword={Keyword}", query.Keyword);
+                var fallbackResult = await _ownedFallbackClient.SearchOwnedAsync(query, ct);
+                if (fallbackResult.IsSuccess)
+                {
+                    _logger.Information("Fab Epic 回退搜索完成 | Returned={Count} | Total={Total}",
+                        fallbackResult.Value!.Items.Count,
+                        fallbackResult.Value.TotalCount);
+                }
+
+                return fallbackResult;
+            }
+
             return Result.Fail<PagedResult<FabAssetSummary>>(apiResult.Error!);
+        }
 
         var response = apiResult.Value!;
         var installedAssets = await GetInstalledAssetIds(ct);
@@ -68,7 +86,15 @@ public sealed class FabCatalogReadService : IFabCatalogReadService
 
         var apiResult = await _apiClient.GetDetailAsync(assetId, ct);
         if (!apiResult.IsSuccess)
+        {
+            if (string.Equals(apiResult.Error?.Code, "FAB_BROWSER_CHALLENGE_BLOCKED", StringComparison.Ordinal))
+            {
+                _logger.Information("Fab 详情切换到 Epic 后端已拥有资产回退 | AssetId={AssetId}", assetId);
+                return await _ownedFallbackClient.GetDetailAsync(assetId, ct);
+            }
+
             return Result.Fail<FabAssetDetail>(apiResult.Error!);
+        }
 
         var dto = apiResult.Value!;
         var installedAssets = await GetInstalledAssetIds(ct);
@@ -106,7 +132,15 @@ public sealed class FabCatalogReadService : IFabCatalogReadService
 
         var apiResult = await _apiClient.GetOwnedAssetsAsync(ct);
         if (!apiResult.IsSuccess)
+        {
+            if (string.Equals(apiResult.Error?.Code, "FAB_BROWSER_CHALLENGE_BLOCKED", StringComparison.Ordinal))
+            {
+                _logger.Information("Fab 已拥有资产切换到 Epic 后端回退");
+                return await _ownedFallbackClient.GetOwnedAssetsAsync(ct);
+            }
+
             return Result.Fail<IReadOnlyList<FabAssetSummary>>(apiResult.Error!);
+        }
 
         var installedAssets = await GetInstalledAssetIds(ct);
         var items = apiResult.Value!.Items
@@ -128,7 +162,15 @@ public sealed class FabCatalogReadService : IFabCatalogReadService
 
         var apiResult = await _apiClient.GetCategoriesAsync(ct);
         if (!apiResult.IsSuccess)
+        {
+            if (string.Equals(apiResult.Error?.Code, "FAB_BROWSER_CHALLENGE_BLOCKED", StringComparison.Ordinal))
+            {
+                _logger.Information("Fab 分类切换到 Epic 后端空分类回退");
+                return await _ownedFallbackClient.GetCategoriesAsync(ct);
+            }
+
             return Result.Fail<IReadOnlyList<AssetCategoryInfo>>(apiResult.Error!);
+        }
 
         var items = apiResult.Value!.Items
             .Select(dto => new AssetCategoryInfo

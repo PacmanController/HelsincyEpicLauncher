@@ -93,8 +93,25 @@ public static class DependencyInjection
             client.DefaultRequestHeaders.Add("Accept", "application/json");
             EnsureHttps(client.BaseAddress);
         });
+        services.AddHttpClient("EpicLibraryApi", client =>
+        {
+            client.BaseAddress = new Uri("https://library-service.live.use1a.on.epicgames.com");
+            client.DefaultRequestHeaders.Add("Accept", "application/json");
+            client.DefaultRequestHeaders.AcceptEncoding.Clear();
+            client.DefaultRequestHeaders.AcceptEncoding.ParseAdd("identity");
+            EnsureHttps(client.BaseAddress);
+        });
+        services.AddHttpClient("EpicCatalogApi", client =>
+        {
+            client.BaseAddress = new Uri("https://catalog-public-service-prod06.ol.epicgames.com");
+            client.DefaultRequestHeaders.Add("Accept", "application/json");
+            client.DefaultRequestHeaders.AcceptEncoding.Clear();
+            client.DefaultRequestHeaders.AcceptEncoding.ParseAdd("identity");
+            EnsureHttps(client.BaseAddress);
+        });
         services.AddHttpClient("ThumbnailDownload");
         services.AddSingleton<FabApiClient>();
+        services.AddSingleton<EpicOwnedFabCatalogClient>();
         services.AddSingleton<IFabDownloadInfoProvider, FabDownloadInfoProvider>();
         services.AddSingleton<IThumbnailCacheService>(sp =>
         {

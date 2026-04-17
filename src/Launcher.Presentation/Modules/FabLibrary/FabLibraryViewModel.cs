@@ -205,6 +205,26 @@ public partial class FabLibraryViewModel : ObservableObject, IDisposable
         var result = await _catalogService.SearchAsync(query, CancellationToken.None);
         if (!result.IsSuccess)
         {
+            if (string.Equals(result.Error?.Code, "AUTH_NOT_AUTHENTICATED", StringComparison.Ordinal))
+            {
+                HasError = false;
+                ErrorMessage = string.Empty;
+
+                if (!append)
+                {
+                    Assets.Clear();
+                    CurrentPage = 1;
+                    TotalPages = 0;
+                    HasNextPage = false;
+                    TotalCount = 0;
+                    HasAssets = false;
+                    IsEmpty = false;
+                }
+
+                Logger.Information("Fab 当前尚未完成认证，等待会话恢复后自动重载");
+                return;
+            }
+
             HasError = true;
             ErrorMessage = result.Error?.UserMessage ?? "加载资产列表失败";
             Logger.Warning("Fab 搜索失败: {Error}", result.Error?.TechnicalMessage);

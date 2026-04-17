@@ -113,6 +113,14 @@ public partial class FabAssetDetailViewModel : ObservableObject
             var result = await _catalogService.GetDetailAsync(assetId, CancellationToken.None);
             if (!result.IsSuccess)
             {
+                if (string.Equals(result.Error?.Code, "AUTH_NOT_AUTHENTICATED", StringComparison.Ordinal))
+                {
+                    HasError = false;
+                    ErrorMessage = string.Empty;
+                    Logger.Information("Fab 详情当前尚未完成认证，等待会话恢复后自动重载 | AssetId={AssetId}", assetId);
+                    return;
+                }
+
                 HasError = true;
                 ErrorMessage = result.Error?.UserMessage ?? "加载资产详情失败";
                 Logger.Warning("资产详情加载失败 {AssetId}: {Error}", assetId, result.Error?.TechnicalMessage);

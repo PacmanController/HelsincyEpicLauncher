@@ -42,4 +42,16 @@ internal sealed class StubNavigationService : INavigationService
         _currentRoute = previous;
         return Task.CompletedTask;
     }
+
+    public Task ReloadCurrentAsync()
+    {
+        if (string.IsNullOrEmpty(_currentRoute))
+        {
+            Logger.Debug("跳过重载：当前没有激活路由");
+            return Task.CompletedTask;
+        }
+
+        Logger.Information("重新加载当前路由 {Route}", _currentRoute);
+        return Task.CompletedTask;
+    }
 }

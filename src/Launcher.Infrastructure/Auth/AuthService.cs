@@ -16,6 +16,7 @@ internal sealed class AuthService : IAuthService, IDisposable
     private readonly ITokenStore _tokenStore;
     private readonly object _lock = new();
     private readonly SemaphoreSlim _refreshLock = new(1, 1);
+    private readonly SemaphoreSlim _restoreLock = new(1, 1);
 
     private TokenPair? _currentTokens;
     private AuthUserInfo? _currentUser;
@@ -42,6 +43,7 @@ internal sealed class AuthService : IAuthService, IDisposable
         }
     }
 
+    public event Action<AuthUserInfo>? SessionAuthenticated;
     public event Action<SessionExpiredEvent>? SessionExpired;
 
     public AuthService(EpicOAuthHandler oauthHandler, ITokenStore tokenStore)
@@ -50,41 +52,29 @@ internal sealed class AuthService : IAuthService, IDisposable
         _tokenStore = tokenStore;
     }
 
-    public async Task<Result<AuthUserInfo>> LoginAsync(CancellationToken ct = default)
+    public Task<Result> StartAuthorizationCodeLoginAsync(CancellationToken ct = default)
     {
-        _logger.Information("开始 OAuth 登录流程");
+        ct.ThrowIfCancellationRequested();
+        _logger.Information("开始 authorization code 登录流程");
+        return Task.FromResult(_oauthHandler.StartAuthorizationCodeLogin());
+    }
 
-        // 1. 启动 OAuth 授权流程
-        var tokenResult = await _oauthHandler.AuthorizeAsync(ct);
+    public async Task<Result<AuthUserInfo>> CompleteAuthorizationCodeLoginAsync(string authorizationCodeOrJson, CancellationToken ct = default)
+    {
+        _logger.Information("提交 authorization code，完成登录流程");
+
+        var tokenResult = await _oauthHandler.ExchangeAuthorizationCodeAsync(authorizationCodeOrJson, ct);
         if (!tokenResult.IsSuccess)
+        {
             return Result.Fail<AuthUserInfo>(tokenResult.Error!);
+        }
 
         var tokens = tokenResult.Value!;
 
-        // 2. 获取用户信息
-        var userResult = await _oauthHandler.GetAccountInfoAsync(tokens.AccessToken, tokens.AccountId, ct);
-        AuthUserInfo userInfo;
+        var userInfo = await ResolveUserInfoAsync(tokens, ct);
 
-        if (userResult.IsSuccess)
-        {
-            userInfo = userResult.Value!;
-        }
-        else
-        {
-            // 如果获取用户信息失败，用 Token 里的基本信息
-            userInfo = new AuthUserInfo
-            {
-                AccountId = tokens.AccountId,
-                DisplayName = tokens.DisplayName,
-                Email = string.Empty,
-            };
-            _logger.Warning("获取详细用户信息失败，使用 Token 中的基本信息");
-        }
-
-        // 3. 存储 Token
         await _tokenStore.SaveTokensAsync(tokens, ct);
 
-        // 4. 更新内存状态
         lock (_lock)
         {
             _currentTokens = tokens;
@@ -93,6 +83,7 @@ internal sealed class AuthService : IAuthService, IDisposable
 
         _logger.Information("登录成功 | AccountId={AccountId} | DisplayName={Name}",
             userInfo.AccountId, userInfo.DisplayName);
+        SessionAuthenticated?.Invoke(userInfo);
         return Result.Ok(userInfo);
     }
 
@@ -236,84 +227,98 @@ internal sealed class AuthService : IAuthService, IDisposable
     {
         _logger.Debug("尝试恢复会话");
 
-        // 1. 从存储加载 Token
-        var tokens = await _tokenStore.LoadTokensAsync(ct);
-        if (tokens is null)
+        lock (_lock)
         {
-            _logger.Debug("未找到缓存的 Token");
-            return Result.Fail<AuthUserInfo>(new Error
+            if (_currentTokens is not null
+                && _currentUser is not null
+                && _currentTokens.ExpiresAt > DateTime.UtcNow.AddMinutes(5))
             {
-                Code = "AUTH_NO_CACHED_SESSION",
-                UserMessage = "无缓存会话",
-                TechnicalMessage = "No tokens found in store",
-                CanRetry = false,
-                Severity = ErrorSeverity.Warning,
-            });
+                _logger.Debug("当前内存会话仍有效，跳过恢复");
+                return Result.Ok(_currentUser);
+            }
         }
 
-        // 2. 检查 access_token 是否还有效
-        if (tokens.ExpiresAt > DateTime.UtcNow.AddMinutes(5))
+        await _restoreLock.WaitAsync(ct);
+        try
         {
-            // Token 仍有效，直接恢复
-            return await RestoreWithTokens(tokens, ct);
-        }
-
-        // 3. Token 已过期，尝试刷新
-        if (string.IsNullOrEmpty(tokens.RefreshToken))
-        {
-            await _tokenStore.ClearAsync(ct);
-            return Result.Fail<AuthUserInfo>(new Error
+            lock (_lock)
             {
-                Code = "AUTH_SESSION_EXPIRED",
-                UserMessage = "会话已过期，请重新登录",
-                TechnicalMessage = "Access token expired and no refresh token available",
-                CanRetry = false,
-                Severity = ErrorSeverity.Warning,
-            });
-        }
+                if (_currentTokens is not null
+                    && _currentUser is not null
+                    && _currentTokens.ExpiresAt > DateTime.UtcNow.AddMinutes(5))
+                {
+                    _logger.Debug("恢复期间检测到会话已就绪，跳过重复恢复");
+                    return Result.Ok(_currentUser);
+                }
+            }
 
-        _logger.Debug("缓存 Token 已过期，尝试刷新");
-        var refreshResult = await _oauthHandler.RefreshTokenAsync(tokens.RefreshToken, ct);
-
-        if (!refreshResult.IsSuccess)
-        {
-            await _tokenStore.ClearAsync(ct);
-            _logger.Warning("会话恢复失败：Token 刷新失败");
-            return Result.Fail<AuthUserInfo>(new Error
+            // 1. 从存储加载 Token
+            var tokens = await _tokenStore.LoadTokensAsync(ct);
+            if (tokens is null)
             {
-                Code = "AUTH_RESTORE_FAILED",
-                UserMessage = "会话恢复失败，请重新登录",
-                TechnicalMessage = "Token refresh failed during session restore",
-                CanRetry = false,
-                Severity = ErrorSeverity.Warning,
-            });
+                _logger.Debug("未找到缓存的 Token");
+                return Result.Fail<AuthUserInfo>(new Error
+                {
+                    Code = "AUTH_NO_CACHED_SESSION",
+                    UserMessage = "无缓存会话",
+                    TechnicalMessage = "No tokens found in store",
+                    CanRetry = false,
+                    Severity = ErrorSeverity.Warning,
+                });
+            }
+
+            // 2. 检查 access_token 是否还有效
+            if (tokens.ExpiresAt > DateTime.UtcNow.AddMinutes(5))
+            {
+                // Token 仍有效，直接恢复
+                return await RestoreWithTokens(tokens, ct);
+            }
+
+            // 3. Token 已过期，尝试刷新
+            if (string.IsNullOrEmpty(tokens.RefreshToken))
+            {
+                await _tokenStore.ClearAsync(ct);
+                return Result.Fail<AuthUserInfo>(new Error
+                {
+                    Code = "AUTH_SESSION_EXPIRED",
+                    UserMessage = "会话已过期，请重新登录",
+                    TechnicalMessage = "Access token expired and no refresh token available",
+                    CanRetry = false,
+                    Severity = ErrorSeverity.Warning,
+                });
+            }
+
+            _logger.Debug("缓存 Token 已过期，尝试刷新");
+            var refreshResult = await _oauthHandler.RefreshTokenAsync(tokens.RefreshToken, ct);
+
+            if (!refreshResult.IsSuccess)
+            {
+                await _tokenStore.ClearAsync(ct);
+                _logger.Warning("会话恢复失败：Token 刷新失败");
+                return Result.Fail<AuthUserInfo>(new Error
+                {
+                    Code = "AUTH_RESTORE_FAILED",
+                    UserMessage = "会话恢复失败，请重新登录",
+                    TechnicalMessage = "Token refresh failed during session restore",
+                    CanRetry = false,
+                    Severity = ErrorSeverity.Warning,
+                });
+            }
+
+            var newTokens = refreshResult.Value!;
+            await _tokenStore.SaveTokensAsync(newTokens, ct);
+
+            return await RestoreWithTokens(newTokens, ct);
         }
-
-        var newTokens = refreshResult.Value!;
-        await _tokenStore.SaveTokensAsync(newTokens, ct);
-
-        return await RestoreWithTokens(newTokens, ct);
+        finally
+        {
+            _restoreLock.Release();
+        }
     }
 
     private async Task<Result<AuthUserInfo>> RestoreWithTokens(TokenPair tokens, CancellationToken ct)
     {
-        // 获取用户信息
-        var userResult = await _oauthHandler.GetAccountInfoAsync(tokens.AccessToken, tokens.AccountId, ct);
-        AuthUserInfo userInfo;
-
-        if (userResult.IsSuccess)
-        {
-            userInfo = userResult.Value!;
-        }
-        else
-        {
-            userInfo = new AuthUserInfo
-            {
-                AccountId = tokens.AccountId,
-                DisplayName = tokens.DisplayName,
-                Email = string.Empty,
-            };
-        }
+        var userInfo = await ResolveUserInfoAsync(tokens, ct);
 
         lock (_lock)
         {
@@ -323,11 +328,30 @@ internal sealed class AuthService : IAuthService, IDisposable
 
         _logger.Information("会话已恢复 | AccountId={AccountId} | DisplayName={Name}",
             userInfo.AccountId, userInfo.DisplayName);
+        SessionAuthenticated?.Invoke(userInfo);
         return Result.Ok(userInfo);
+    }
+
+    private async Task<AuthUserInfo> ResolveUserInfoAsync(TokenPair tokens, CancellationToken ct)
+    {
+        var userResult = await _oauthHandler.GetAccountInfoAsync(tokens.AccessToken, tokens.AccountId, ct);
+        if (userResult.IsSuccess)
+        {
+            return userResult.Value!;
+        }
+
+        _logger.Warning("获取详细用户信息失败，使用 Token 中的基本信息");
+        return new AuthUserInfo
+        {
+            AccountId = tokens.AccountId,
+            DisplayName = tokens.DisplayName,
+            Email = string.Empty,
+        };
     }
 
     public void Dispose()
     {
         _refreshLock.Dispose();
+        _restoreLock.Dispose();
     }
 }

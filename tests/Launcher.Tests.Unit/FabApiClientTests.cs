@@ -108,6 +108,25 @@ public sealed class FabApiClientTests : IDisposable
         _handler.ReceivedRequests.Count.Should().BeGreaterThanOrEqualTo(2);
     }
 
+    [Fact]
+    public async Task SearchAsync_CloudflareChallenge_ReturnsFriendlyBlockedError()
+    {
+        // Arrange
+        const string challengeHtml = "<!DOCTYPE html><html><head><title>Just a moment...</title></head><body>Enable JavaScript and cookies to continue<script>window._cf_chl_opt={};</script></body></html>";
+        _handler.EnqueueResponse(HttpStatusCode.Forbidden, challengeHtml);
+
+        var query = new FabSearchQuery { Keyword = "test" };
+
+        // Act
+        var result = await _sut.SearchAsync(query, CancellationToken.None);
+
+        // Assert
+        result.IsSuccess.Should().BeFalse();
+        result.Error!.Code.Should().Be("FAB_BROWSER_CHALLENGE_BLOCKED");
+        result.Error.UserMessage.Should().Contain("浏览器验证拦截");
+        result.Error.CanRetry.Should().BeFalse();
+    }
+
     // ===== GetDetailAsync =====
 
     [Fact]
@@ -211,7 +230,7 @@ public sealed class FabApiClientTests : IDisposable
 
         // Assert
         result.IsSuccess.Should().BeFalse();
-        result.Error!.Code.Should().Be("FAB_AUTH_FAILED");
+        result.Error!.Code.Should().Be("AUTH_TOKEN_EXPIRED");
     }
 
     // ===== 取消 =====

@@ -2,6 +2,7 @@
 
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Media;
 using Serilog;
 
 namespace Launcher.Presentation.Shell;
@@ -80,6 +81,47 @@ public sealed class DialogService : IDialogService
         }
 
         await dialog.ShowAsync();
+    }
+
+    public async Task<string?> ShowTextInputAsync(string title, string message, string placeholder = "", string confirmText = "确认", string cancelText = "取消")
+    {
+        Logger.Information("显示文本输入对话框 | {Title}", title);
+
+        var inputBox = new TextBox
+        {
+            PlaceholderText = placeholder,
+            AcceptsReturn = true,
+            TextWrapping = TextWrapping.Wrap,
+            MinHeight = 120,
+            MinWidth = 360,
+        };
+
+        var content = new StackPanel
+        {
+            Spacing = 12,
+            Children =
+            {
+                new TextBlock
+                {
+                    Text = message,
+                    TextWrapping = TextWrapping.Wrap,
+                },
+                inputBox,
+            },
+        };
+
+        var dialog = new ContentDialog
+        {
+            Title = title,
+            Content = content,
+            PrimaryButtonText = confirmText,
+            CloseButtonText = cancelText,
+            DefaultButton = ContentDialogButton.Primary,
+            XamlRoot = _xamlRoot,
+        };
+
+        var result = await dialog.ShowAsync();
+        return result == ContentDialogResult.Primary ? inputBox.Text?.Trim() : null;
     }
 
     public Task<TResult?> ShowCustomAsync<TResult>(object dialogViewModel)

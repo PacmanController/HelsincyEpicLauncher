@@ -15,8 +15,11 @@ public interface IAuthService
     /// <summary>当前登录用户信息</summary>
     AuthUserInfo? CurrentUser { get; }
 
-    /// <summary>启动 OAuth 登录流程</summary>
-    Task<Result<AuthUserInfo>> LoginAsync(CancellationToken ct = default);
+    /// <summary>打开 Epic 登录页，启动 authorization code 登录流程</summary>
+    Task<Result> StartAuthorizationCodeLoginAsync(CancellationToken ct = default);
+
+    /// <summary>提交 authorization code 或完整 JSON 响应，完成登录</summary>
+    Task<Result<AuthUserInfo>> CompleteAuthorizationCodeLoginAsync(string authorizationCodeOrJson, CancellationToken ct = default);
 
     /// <summary>登出</summary>
     Task<Result> LogoutAsync(CancellationToken ct = default);
@@ -26,6 +29,9 @@ public interface IAuthService
 
     /// <summary>尝试从缓存恢复会话（启动时调用）</summary>
     Task<Result<AuthUserInfo>> TryRestoreSessionAsync(CancellationToken ct = default);
+
+    /// <summary>会话已认证事件（登录成功或恢复成功）</summary>
+    event Action<AuthUserInfo>? SessionAuthenticated;
 
     /// <summary>会话过期事件</summary>
     event Action<SessionExpiredEvent>? SessionExpired;
