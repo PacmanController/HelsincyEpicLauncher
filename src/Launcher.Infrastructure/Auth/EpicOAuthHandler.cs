@@ -99,9 +99,9 @@ internal sealed class EpicOAuthHandler
         }
     }
 
-    public async Task<Result<TokenPair>> ExchangeAuthorizationCodeAsync(string authorizationCodeOrJson, CancellationToken ct)
+    public async Task<Result<TokenPair>> ExchangeAuthorizationCodeAsync(string authorizationCodeOrCallbackUrl, CancellationToken ct)
     {
-        var codeResult = EpicOAuthProtocol.ExtractAuthorizationCode(authorizationCodeOrJson);
+        var codeResult = EpicOAuthProtocol.ExtractAuthorizationCode(authorizationCodeOrCallbackUrl);
         if (!codeResult.IsSuccess)
         {
             return Result.Fail<TokenPair>(codeResult.Error!);

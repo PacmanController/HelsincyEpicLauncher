@@ -52,25 +52,25 @@ public sealed class EpicOAuthProtocolTests
     }
 
     [Fact]
-    public void ExtractAuthorizationCode_WithJsonPayload_Should_Succeed()
+    public void ExtractAuthorizationCode_WithJsonPayload_Should_Fail()
     {
         // Act
         var result = EpicOAuthProtocol.ExtractAuthorizationCode("{\"authorizationCode\":\"code-123\"}");
 
         // Assert
-        result.IsSuccess.Should().BeTrue();
-        result.Value.Should().Be("code-123");
+        result.IsSuccess.Should().BeFalse();
+        result.Error!.Code.Should().Be("AUTH_AUTHORIZATION_CODE_JSON_NOT_ALLOWED");
     }
 
     [Fact]
-    public void ExtractAuthorizationCode_WithJsonRedirectUrl_Should_Succeed()
+    public void ExtractAuthorizationCode_WithJsonRedirectUrl_Should_Fail()
     {
         // Act
         var result = EpicOAuthProtocol.ExtractAuthorizationCode("{\"redirectUrl\":\"https://localhost/launcher/authorized?code=code-123\"}");
 
         // Assert
-        result.IsSuccess.Should().BeTrue();
-        result.Value.Should().Be("code-123");
+        result.IsSuccess.Should().BeFalse();
+        result.Error!.Code.Should().Be("AUTH_AUTHORIZATION_CODE_JSON_NOT_ALLOWED");
     }
 
     [Fact]
@@ -92,7 +92,8 @@ public sealed class EpicOAuthProtocolTests
 
         // Assert
         result.IsSuccess.Should().BeFalse();
-        result.Error!.Code.Should().Be("AUTH_AUTHORIZATION_CODE_INVALID");
+        result.Error!.Code.Should().Be("AUTH_AUTHORIZATION_CODE_JSON_NOT_ALLOWED");
+        result.Error.UserMessage.Should().Contain("不要粘贴完整响应内容");
     }
 
     [Fact]

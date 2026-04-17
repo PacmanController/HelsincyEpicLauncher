@@ -43,6 +43,7 @@ public partial class ShellViewModel : ObservableObject, IDisposable
     [ObservableProperty] private string _accountId = string.Empty;
     [ObservableProperty] private string _email = string.Empty;
     [ObservableProperty] private bool _isLoggingIn;
+    [ObservableProperty] private bool _canContinueAuthorizationCodeLogin;
 
     /// <summary>未登录状态（方便 x:Bind 绑定取反）</summary>
     public bool IsNotAuthenticated => !IsAuthenticated;
@@ -148,22 +149,55 @@ public partial class ShellViewModel : ObservableObject, IDisposable
                 return;
             }
 
+            CanContinueAuthorizationCodeLogin = true;
+            await _dialogService.ShowInfoAsync(
+                "Epic 登录已在浏览器中打开",
+                "浏览器已打开。出于安全原因，默认登录路径不再接受整段 JSON 响应。若浏览器没有自动回到应用，但你已经拿到 authorizationCode 或完整回调链接，可使用下方的高级入口手动继续。");
+        }
+        finally
+        {
+            IsLoggingIn = false;
+        }
+    }
+
+    [RelayCommand]
+    private async Task ContinueAuthorizationCodeLoginAsync()
+    {
+        if (!CanContinueAuthorizationCodeLogin || IsLoggingIn) return;
+
+        bool confirmed = await _dialogService.ShowConfirmAsync(
+            "高级登录入口",
+            "只有在浏览器没有自动回到应用，且你已经拿到 authorizationCode 或完整回调链接时，才需要手动继续。是否继续？",
+            "继续",
+            "返回");
+
+        if (!confirmed)
+        {
+            Logger.Information("用户取消进入高级登录入口");
+            return;
+        }
+
+        IsLoggingIn = true;
+
+        try
+        {
             var input = await _dialogService.ShowTextInputAsync(
-                "完成 Epic 登录",
-                "浏览器已打开。请在 Epic 页面完成登录后，尽快将 authorizationCode 粘贴到这里；若你复制的是完整 JSON 或 redirectUrl，也可以直接粘贴。授权码是一次性的，过期后需要重新获取。",
-                "粘贴 authorizationCode 或完整 JSON",
-                "继续登录",
+                "继续 Epic 登录",
+                "请只粘贴 authorizationCode 或完整回调链接。不要粘贴整段 JSON 响应，以免暴露不必要的敏感字段。",
+                "粘贴 authorizationCode 或回调链接",
+                "完成登录",
                 "取消");
 
             if (string.IsNullOrWhiteSpace(input))
             {
-                Logger.Information("用户取消 authorization code 输入");
+                Logger.Information("用户取消 authorization code/回调链接导入");
                 return;
             }
 
             var result = await _authService.CompleteAuthorizationCodeLoginAsync(input);
             if (result.IsSuccess)
             {
+                CanContinueAuthorizationCodeLogin = false;
                 Logger.Information("登录成功 | 用户={Name}", result.Value!.DisplayName);
             }
             else
@@ -192,6 +226,7 @@ public partial class ShellViewModel : ObservableObject, IDisposable
     private void UpdateUserInfo(AuthUserInfo user)
     {
         IsAuthenticated = true;
+        CanContinueAuthorizationCodeLogin = false;
         DisplayName = user.DisplayName;
         AccountId = user.AccountId;
         Email = user.Email;
@@ -200,6 +235,7 @@ public partial class ShellViewModel : ObservableObject, IDisposable
     private void ClearUserInfo()
     {
         IsAuthenticated = false;
+        CanContinueAuthorizationCodeLogin = false;
         DisplayName = "未登录";
         AccountId = string.Empty;
         Email = string.Empty;

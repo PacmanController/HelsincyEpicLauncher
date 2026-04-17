@@ -16,6 +16,8 @@ using Serilog.Events;
 using Serilog.Formatting.Compact;
 using System.Globalization;
 using System.IO.Pipes;
+using System.Collections.Concurrent;
+using System.Text;
 
 namespace Launcher.App;
 
@@ -38,6 +40,8 @@ public partial class App : Microsoft.UI.Xaml.Application
     private MainWindow? _mainWindow;
     private TrayIconManager? _trayIcon;
     private readonly CancellationTokenSource _appCts = new();
+    private readonly ConcurrentQueue<(string Payload, string Source)> _pendingAuthCallbackPayloads = new();
+    private bool _isReadyToProcessExternalAuthCallbacks;
 
     /// <summary>
     /// 全局服务提供器
@@ -58,9 +62,10 @@ public partial class App : Microsoft.UI.Xaml.Application
     protected override void OnLaunched(LaunchActivatedEventArgs args)
     {
         var appStartSw = System.Diagnostics.Stopwatch.StartNew();
+        var launchArguments = args.Arguments;
 
         // === Phase 0：单实例检查 + 最小可显示 ===
-        if (!EnsureSingleInstance())
+        if (!EnsureSingleInstance(launchArguments))
         {
             Log.Information("检测到已有实例运行，已通知前台，退出当前实例");
             Environment.Exit(0);
@@ -85,6 +90,10 @@ public partial class App : Microsoft.UI.Xaml.Application
 
         _mainWindow.Activate();
         _mainWindow.HideLoadingIndicator();
+        _isReadyToProcessExternalAuthCallbacks = true;
+
+        TryQueueAuthCallbackPayload(launchArguments, "LaunchArguments");
+        DrainPendingAuthCallbackPayloads();
 
         appStartSw.Stop();
         Log.Information("主窗口已显示 | 冷启动耗时 {ElapsedMs}ms | 系统托盘图标已就绪",
@@ -215,13 +224,13 @@ public partial class App : Microsoft.UI.Xaml.Application
     /// <summary>
     /// 单实例检查。如果已有实例运行，通过命名管道通知并返回 false。
     /// </summary>
-    private static bool EnsureSingleInstance()
+    private static bool EnsureSingleInstance(string? launchArguments)
     {
         _mutex = new Mutex(true, MutexName, out bool isNew);
         if (!isNew)
         {
             // 通知已有实例激活窗口
-            NotifyExistingInstance();
+            NotifyExistingInstance(launchArguments);
             return false;
         }
         return true;
@@ -230,14 +239,14 @@ public partial class App : Microsoft.UI.Xaml.Application
     /// <summary>
     /// 通过命名管道通知已有实例激活主窗口
     /// </summary>
-    private static void NotifyExistingInstance()
+    private static void NotifyExistingInstance(string? launchArguments)
     {
         try
         {
             using var client = new NamedPipeClientStream(".", PipeName, PipeDirection.Out);
             client.Connect(timeout: 3000);
             using var writer = new StreamWriter(client);
-            writer.WriteLine("ACTIVATE");
+            writer.WriteLine(BuildPipeMessage(launchArguments));
             writer.Flush();
         }
         catch (Exception ex)
@@ -265,10 +274,19 @@ public partial class App : Microsoft.UI.Xaml.Application
                     using var reader = new StreamReader(server);
                     string? message = await reader.ReadLineAsync(ct);
 
-                    if (message == "ACTIVATE")
+                    if (string.Equals(message, "ACTIVATE", StringComparison.Ordinal))
                     {
                         Log.Information("收到第二实例的激活请求，激活主窗口");
                         ActivateMainWindow();
+                        continue;
+                    }
+
+                    if (TryParsePipeMessage(message, out var payload))
+                    {
+                        Log.Information("收到第二实例转发的认证回调候选负载，激活主窗口并尝试自动完成登录");
+                        ActivateMainWindow();
+                        QueueAuthCallbackPayload(payload, "NamedPipe");
+                        continue;
                     }
                 }
                 catch (OperationCanceledException)
@@ -305,6 +323,129 @@ public partial class App : Microsoft.UI.Xaml.Application
                 PInvoke.SetForegroundWindow(hwnd);
             }
         });
+    }
+
+    private void QueueAuthCallbackPayload(string payload, string source)
+    {
+        _pendingAuthCallbackPayloads.Enqueue((payload, source));
+        if (_isReadyToProcessExternalAuthCallbacks)
+        {
+            DrainPendingAuthCallbackPayloads();
+        }
+    }
+
+    private void TryQueueAuthCallbackPayload(string? candidate, string source)
+    {
+        if (!TryExtractAuthCallbackPayload(candidate, out var payload))
+        {
+            return;
+        }
+
+        QueueAuthCallbackPayload(payload, source);
+    }
+
+    private void DrainPendingAuthCallbackPayloads()
+    {
+        while (_pendingAuthCallbackPayloads.TryDequeue(out var entry))
+        {
+            _ = CompleteAuthCallbackPayloadAsync(entry.Payload, entry.Source);
+        }
+    }
+
+    private async Task CompleteAuthCallbackPayloadAsync(string payload, string source)
+    {
+        try
+        {
+            var authService = Services.GetRequiredService<Launcher.Application.Modules.Auth.Contracts.IAuthService>();
+            var result = await authService.CompleteAuthorizationCodeLoginAsync(payload, _appCts.Token).ConfigureAwait(false);
+            if (result.IsSuccess)
+            {
+                Log.Information("已自动消费外部认证回调 | Source={Source} | User={User}", source, result.Value!.DisplayName);
+                ActivateMainWindow();
+                return;
+            }
+
+            Log.Warning("外部认证回调自动完成失败 | Source={Source} | Error={Error} | Detail={Detail}",
+                source,
+                result.Error?.UserMessage,
+                result.Error?.TechnicalMessage);
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "处理外部认证回调候选负载时发生异常 | Source={Source}", source);
+        }
+    }
+
+    private static string BuildPipeMessage(string? launchArguments)
+    {
+        if (!TryExtractAuthCallbackPayload(launchArguments, out var payload))
+        {
+            return "ACTIVATE";
+        }
+
+        var encodedPayload = Convert.ToBase64String(Encoding.UTF8.GetBytes(payload));
+        return $"AUTH_CALLBACK|{encodedPayload}";
+    }
+
+    private static bool TryParsePipeMessage(string? message, out string payload)
+    {
+        payload = string.Empty;
+
+        if (string.IsNullOrWhiteSpace(message)
+            || !message.StartsWith("AUTH_CALLBACK|", StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        var encodedPayload = message["AUTH_CALLBACK|".Length..];
+        if (string.IsNullOrWhiteSpace(encodedPayload))
+        {
+            return false;
+        }
+
+        try
+        {
+            payload = Encoding.UTF8.GetString(Convert.FromBase64String(encodedPayload));
+            return !string.IsNullOrWhiteSpace(payload);
+        }
+        catch (FormatException)
+        {
+            return false;
+        }
+    }
+
+    private static bool TryExtractAuthCallbackPayload(string? candidate, out string payload)
+    {
+        payload = string.Empty;
+        if (string.IsNullOrWhiteSpace(candidate))
+        {
+            return false;
+        }
+
+        var trimmed = candidate.Trim();
+        if (trimmed.Length >= 2 && trimmed[0] == '"' && trimmed[^1] == '"')
+        {
+            trimmed = trimmed[1..^1].Trim();
+        }
+
+        if (string.IsNullOrWhiteSpace(trimmed))
+        {
+            return false;
+        }
+
+        var looksLikeCallbackUrl = trimmed.Contains("://", StringComparison.Ordinal)
+            || trimmed.Contains("code=", StringComparison.OrdinalIgnoreCase);
+
+        if (!looksLikeCallbackUrl)
+        {
+            return false;
+        }
+
+        payload = trimmed;
+        return true;
     }
 
     /// <summary>

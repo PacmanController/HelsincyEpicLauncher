@@ -37,12 +37,27 @@
                         <Button Grid.Column="2" Content="登出" Command="{x:Bind ViewModel.LogoutCommand}" FontSize="11" Padding="6,2" VerticalAlignment="Center" />
                     </Grid>
                     <!-- 未登录状态 -->
-                    <Button
-                        Content="登录 Epic Games"
-                        Command="{x:Bind ViewModel.LoginCommand}"
-                        Style="{StaticResource AccentButtonStyle}"
-                        HorizontalAlignment="Stretch"
-                        Visibility="{x:Bind ViewModel.IsNotAuthenticated, Mode=OneWay}" />
+                    <StackPanel Visibility="{x:Bind ViewModel.IsNotAuthenticated, Mode=OneWay}" Spacing="6">
+                        <Button
+                            Content="登录 Epic Games"
+                            Command="{x:Bind ViewModel.LoginCommand}"
+                            Style="{StaticResource AccentButtonStyle}"
+                            HorizontalAlignment="Stretch" />
+                        <StackPanel
+                            Spacing="2"
+                            Visibility="{x:Bind ViewModel.CanContinueAuthorizationCodeLogin, Mode=OneWay}">
+                            <TextBlock
+                                Text="浏览器没有自动完成登录？"
+                                Style="{StaticResource CaptionTextBlockStyle}"
+                                Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            <HyperlinkButton
+                                Content="高级：手动继续登录"
+                                Command="{x:Bind ViewModel.ContinueAuthorizationCodeLoginCommand}"
+                                HorizontalAlignment="Left"
+                                Padding="0"
+                                ToolTipService.ToolTip="仅在浏览器没有自动回到应用，且你已经拿到授权码或完整回调链接时使用。" />
+                        </StackPanel>
+                    </StackPanel>
                 </Grid>
             </NavigationView.PaneHeader>
 

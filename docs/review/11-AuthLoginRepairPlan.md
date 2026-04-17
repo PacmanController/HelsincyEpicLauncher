@@ -102,6 +102,47 @@
 
 如果这一步不先做，后续任何代码改动都可能建立在错误前提上，属于无效修复。
 
+#### P0.1 loopback 回调外部验证清单
+
+执行 P0.1 时，不要只问“有没有可用 redirect_uri”，而是至少确认以下精确信息：
+
+如需直接发给 Epic/外部维护方，可使用 [12-AuthRedirectInquiryTemplate.md](12-AuthRedirectInquiryTemplate.md) 中的现成模板。
+
+1. `ClientId=34a02cf8f4414e29b15921876da36f9a` 当前是否支持任何 loopback `redirect_uri`
+2. 若支持，允许值是否必须是**精确完整字符串**，还是允许有限变体
+3. 允许的 scheme 是什么：
+   - `http://localhost:<port>/callback`
+   - `http://127.0.0.1:<port>/callback`
+   - `https://localhost:<port>/callback`
+   - 其他固定 loopback URI
+4. 允许的 host、端口、path 是否都必须精确匹配；当前实现默认要求显式端口和固定 path
+5. 浏览器交互是否可以继续使用标准 `id/authorize?redirect_uri=...`，还是必须走 `id/login?redirectUrl=...` 包装链路
+6. 成功回调时实际返回的 query 字段名是否为 `code`，是否还会携带 `state`、`error`、`error_description` 之外的关键字段
+7. token 交换阶段是否必须带回同一个 `redirect_uri`，以及是否需要额外参数如 `token_type=eg1`
+8. 当前 client secret + Basic Auth 方式是否仍然适用于 loopback code exchange，还是需要切换为其他授权方式
+9. authorization code 的有效期、单次使用语义、重放失败错误码是否稳定
+10. 若当前 clientId 完全不支持 loopback，是否存在同等权限但支持 loopback 的替代 clientId；若没有，则必须明确进入非 loopback 分支
+
+本仓库当前代码对 loopback 主链路的硬性约束如下，外部确认结果必须能满足它们，否则不能直接进入 P1：
+
+- `EpicOAuthOptions.RedirectUri` 当前为单一固定值，默认 `http://localhost:6780/callback`
+- `StartListener()` 只接受 `http` + loopback + 显式端口
+- `WaitForCallbackAsync()` 要求回调 path 与配置 path 精确匹配，并依赖 `state` 校验
+- 自动回调流的 token exchange 当前会回传 `redirect_uri`，但不会附带 `token_type=eg1`
+
+建议把对外确认输出整理为一张表，再决定是否进入 P1：
+
+| 字段 | 需要确认的值 | 当前代码假设 |
+|------|--------------|--------------|
+| redirect_uri | 精确完整 URI | `http://localhost:6780/callback` |
+| scheme | `http` / `https` | `http` |
+| host | `localhost` / `127.0.0.1` / 其他 | `localhost` |
+| port | 是否固定、是否允许变更 | 固定显式端口 |
+| path | 是否必须 `/callback` | `/callback` |
+| authorize 入口 | `id/authorize` 或 `id/login?redirectUrl=...` | 两者尚未统一 |
+| token exchange 参数 | `redirect_uri`、`token_type`、Basic Auth 要求 | 自动流当前只带 `redirect_uri` |
+| code 返回字段 | `code` / `authorizationCode` / 其他 | `code` |
+
 ---
 
 ### Task P0.2 — 回调兼容性决策闸门

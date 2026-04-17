@@ -1,14 +1,13 @@
 // Copyright (c) Helsincy. All rights reserved.
 
 using System.Collections.Specialized;
-using System.Text.Json;
 using Launcher.Shared;
 using Launcher.Shared.Logging;
 
 namespace Launcher.Infrastructure.Auth;
 
 /// <summary>
-/// Epic OAuth 协议辅助逻辑。负责授权 URL 构建与回调参数解析。
+/// Epic OAuth 协议辅助逻辑。负责授权 URL 构建与授权码/回调 URL 解析。
 /// </summary>
 internal static class EpicOAuthProtocol
 {
@@ -37,39 +36,14 @@ internal static class EpicOAuthProtocol
         }
 
         var trimmedInput = rawInput.Trim();
-        if (trimmedInput.StartsWith('{'))
+        if (trimmedInput.Length > 0 && trimmedInput[0] == '{')
         {
-            try
-            {
-                using var doc = JsonDocument.Parse(trimmedInput);
-                if (TryGetNonEmptyString(doc.RootElement, "authorizationCode", out var authorizationCode)
-                    || TryGetNonEmptyString(doc.RootElement, "code", out authorizationCode))
-                {
-                    return Result.Ok(authorizationCode!);
-                }
-
-                if (TryGetNonEmptyString(doc.RootElement, "redirectUrl", out var redirectUrl)
-                    && TryExtractCodeFromUrl(redirectUrl!, out authorizationCode))
-                {
-                    return Result.Ok(authorizationCode!);
-                }
-
-                return Result.Fail<string>(CreateError(
-                    "AUTH_AUTHORIZATION_CODE_INVALID",
-                    "未识别到有效的授权码，请重试",
-                    "Authorization code JSON does not contain 'authorizationCode', 'code', or a redirectUrl query parameter.",
-                    canRetry: true,
-                    severity: ErrorSeverity.Warning));
-            }
-            catch (JsonException ex)
-            {
-                return Result.Fail<string>(CreateError(
-                    "AUTH_AUTHORIZATION_CODE_INVALID",
-                    "未识别到有效的授权码，请重试",
-                    $"Invalid authorization code JSON input: {LogSanitizer.SanitizeHttpBody(ex.Message)}",
-                    canRetry: true,
-                    severity: ErrorSeverity.Warning));
-            }
+            return Result.Fail<string>(CreateError(
+                "AUTH_AUTHORIZATION_CODE_JSON_NOT_ALLOWED",
+                "请不要粘贴完整响应内容；只粘贴 authorizationCode 或完整回调链接。",
+                "Manual authorization code input must not contain a full JSON payload.",
+                canRetry: true,
+                severity: ErrorSeverity.Warning));
         }
 
         if (trimmedInput.Length >= 2 && trimmedInput[0] == '"' && trimmedInput[^1] == '"')
@@ -172,18 +146,6 @@ internal static class EpicOAuthProtocol
             CanRetry = canRetry,
             Severity = severity,
         };
-    }
-
-    private static bool TryGetNonEmptyString(JsonElement element, string propertyName, out string? value)
-    {
-        value = null;
-        if (!element.TryGetProperty(propertyName, out var property))
-        {
-            return false;
-        }
-
-        value = property.GetString();
-        return !string.IsNullOrWhiteSpace(value);
     }
 
     private static bool TryExtractCodeFromUrl(string rawUrl, out string? code)

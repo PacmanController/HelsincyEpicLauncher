@@ -12,6 +12,12 @@
 - `EpicOwnedFabCatalogClient` 进一步收敛为同一套 requirement-driven 流式回退：Fab 首页、后续翻页、详情页都共享同一条 owned 记录扩展链路，不再把详情/翻页走独立的全量路径
 - 最新运行时日志已验证 Fab 回退分页可按需扩展到 page 2~5；新增单测覆盖“详情 challenge 回退到 owned fallback”与“后续页按需扩展预览窗口”两条回归场景
 - 额外完成一次真实会话链路验证：在当前机器已恢复的 Epic 登录态下，直接通过 `IFabCatalogReadService` 成功执行 owned 搜索→详情读取，实测拿到资产 `3e9c264b685f43edabb1bcb000a2330d`（`Modular Scifi Season 2 Starter Bundle`）的详情数据
+- Auth Phase A 止血：主登录按钮不再直接要求用户粘贴整段 JSON；Shell 改为先发起浏览器登录，再通过显式“继续登录（导入授权码）”次级动作完成登录
+- `EpicOAuthProtocol` 不再接受完整 JSON 作为默认人工输入，只接受纯 `authorizationCode` 或完整回调 URL，减少把额外敏感字段暴露给应用的风险
+- Auth 自动回调预研已完成：当前宿主未提供协议激活能力，现成自动回调实现仍只有 loopback；已补一份对外确认用的 loopback 验证清单，后续优先争取 Epic 提供精确可用的 `redirect_uri`
+- `Launcher.App` 已补宿主层自动回调骨架：若应用后续从启动参数或第二实例转发中收到完整回调 URL 候选负载，会自动调用现有 Auth 完成登录，为未来 loopback/协议回调接入提前打通应用内部链路
+- 已新增一份可直接外发的 Auth loopback 确认模板，覆盖精确 `redirect_uri`、authorize 入口形式和 token exchange 参数矩阵的询问项，减少后续对外沟通往返成本
+- 手动授权码导入入口继续降级为低显著度高级链接，并在打开输入框前增加一次确认，进一步避免把兜底路径误当成默认登录方式
 
 ### Task 8.4 - UI 打磨 + 错误闭环 (2026-04-16)
 - FabLibraryViewModel：新增 HasError/ErrorMessage（搜索/加载失败时设置）、IsOffline（注入 INetworkMonitor 实时跟踪网络状态）；Dispose 时解除 NetworkStatusChanged 订阅
