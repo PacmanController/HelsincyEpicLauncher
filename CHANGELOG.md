@@ -22,6 +22,7 @@
 - 本轮还确认了一个运行态验收注意点：`dotnet test` 不会刷新 `Launcher.App.exe`，凡是改动 `src/Launcher.App/*` 后要验证真实宿主行为，必须额外执行一次 `dotnet build src/Launcher.App/Launcher.App.csproj`
 - Auth Phase L1 已落地：在 `Launcher.Infrastructure.Auth` 内部新增 `EpicLoginResult` 归一化模型、`IEpicLoginGrantExecutor` 与 `AuthorizationCodeGrantExecutor`，把“手工 authorization code / 回调 URL / loopback callback”统一收敛到同一条 `authorization_code` 执行链路，同时保持 `IAuthService` 公共契约不变
 - Auth 日志已按“输入类型 / 来源 / grant / 结果”归一：登录结果会先记录 `Kind`、`Source`、`IncludeTokenType` 与是否带 `RedirectUri`，随后在 token exchange 阶段输出结构化的 started / failed / succeeded 事件；新增单测覆盖归一化与 grant 执行器，`dotnet test HelsincyEpicLauncher.slnx --no-restore` 当前为 230/230 通过（仍有 1 条既有 `CA1816` 警告，未在本轮处理）
+- EGL refresh token 导入预研已完成：Legendary 的 `--import` 本质上是从 EGL `GameUserSettings.ini` 的 `[RememberMe]` / `Data` 解析 refresh token，再走标准 `grant_type=refresh_token` 建会话；这条路与当前 Auth Phase L1 架构兼容，但必须作为高级入口，并先处理“可能把 EGL 登出”和“不能直接复制 GPL 解密实现”两项风险
 
 ### Task 8.4 - UI 打磨 + 错误闭环 (2026-04-16)
 - FabLibraryViewModel：新增 HasError/ErrorMessage（搜索/加载失败时设置）、IsOffline（注入 INetworkMonitor 实时跟踪网络状态）；Dispose 时解除 NetworkStatusChanged 订阅

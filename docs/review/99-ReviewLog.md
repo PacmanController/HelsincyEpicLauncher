@@ -429,6 +429,20 @@
 | 测试辅助修补 | 为 `MockHttpMessageHandler` 增加请求体快照，避免新单测因 `FormUrlEncodedContent` 在发送后释放而误判失败 |
 | 下一步 | 当前 Phase L1 已完成，下一轮应由用户在 `WebView2 exchange code` 预研与 `EGL refresh token` 导入预研之间做选择；若只是整理当前状态，也可以先提交这一轮改动 |
 
+### 2026-04-17 — EGL refresh token 导入预研
+
+**状态**: 已完成设计预研，未开始实现 | **输出**: [14-EGLRefreshTokenImportResearch.md](14-EGLRefreshTokenImportResearch.md)
+
+| 类别 | 详细内容 |
+|------|----------|
+| 外部事实 | Legendary 的 `auth_import()` 不是复用 bearer token，而是从 `%LOCALAPPDATA%\EpicGamesLauncher\Saved\Config\Windows\GameUserSettings.ini` 的 `[RememberMe]` / `Data` 读取 refresh token 来源，再调用标准 `grant_type=refresh_token` + `token_type=eg1` 建会话 |
+| 兼容性判断 | 本仓库当前 Auth Phase L1 已有 `EpicLoginResultKind.ExternalRefreshToken` 这一扩展点，因此从结构上完全可以把 EGL 导入作为新的高级登录来源接入，而不必再改回大而杂的 Handler |
+| 产品风险 | Legendary 文档明确提示导入会把 EGL 登出，因此该路径不能作为默认登录按钮，只能是明确带风险告知的高级入口 |
+| 合规风险 | Legendary 的 EGL 解密实现位于 GPL 代码库中；若后续要支持加密 RememberMe 数据，必须用 .NET 标准密码学库写独立实现，不能直接复制其 `egl_crypt.py` 或常量表 |
+| 本机证据 | 本轮对当前机器做了只读存在性检查；`%LOCALAPPDATA%\EpicGamesLauncher\Saved\Config\Windows\GameUserSettings.ini` 当前为 `MISSING`，因此只能完成静态预研，不能做真实导入验收 |
+| 架构边界 | 预研结论要求：读取 EGL RememberMe 的逻辑留在 `Launcher.Infrastructure.Auth`，Shell 只负责确认提示和触发；不应把路径配置暴露到 Settings UI，也不应让 App 宿主参与协议处理 |
+| 下一步 | 真要开始实现时，建议先做合规与样本准备，再落 `EpicLauncherRememberMeReader` 与 `ExternalRefreshTokenGrantExecutor`；如果暂时不想处理解密/许可证风险，则下一步更适合优先推进 WebView2 exchange code |
+
 ---
 
 ## 修复统计

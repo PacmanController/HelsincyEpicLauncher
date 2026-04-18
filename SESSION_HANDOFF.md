@@ -2,13 +2,13 @@
 
 ## 最后更新
 - 时间：2026-04-17
-- 完成任务：Epic 两步式登录验证 + Auth 手动 JSON 输入止血 + Auth 自动回调预研/loopback 清单整理 + Auth 宿主自动回调骨架接入 + Auth 第二实例自动回调转发正式修复并完成运行态验收 + Legendary 参考实现分析与下一阶段 Auth 设计文档定稿 + Auth Phase L1 内部 completion 抽象与结构化日志归一 + Fab 网页端接口误接入修补 + Fab owned 回退统一到流式详情/分页链路
+- 完成任务：Epic 两步式登录验证 + Auth 手动 JSON 输入止血 + Auth 自动回调预研/loopback 清单整理 + Auth 宿主自动回调骨架接入 + Auth 第二实例自动回调转发正式修复并完成运行态验收 + Legendary 参考实现分析与下一阶段 Auth 设计文档定稿 + Auth Phase L1 内部 completion 抽象与结构化日志归一 + EGL refresh token 导入预研 + Fab 网页端接口误接入修补 + Fab owned 回退统一到流式详情/分页链路
 
 ## 当前项目状态
 - 最后成功编译：是（dotnet build 成功）
 - 最后测试结果：全部通过（230/230，另有 1 条既有 `CA1816` 警告）
-- 当前重点：**Auth Phase L1 已完成：内部 `EpicLoginResult` 归一化模型、`IEpicLoginGrantExecutor` / `AuthorizationCodeGrantExecutor` 和结构化日志已经落地，现有 authorization code / 回调 URL / loopback callback 都已收敛到同一条 `authorization_code` 执行链路，且未扩大 `IAuthService` 公共契约。宿主自动回调骨架继续保留为未来真实回调来源的可复用入口。Fab 已拥有资产流式回退仍保持可用，详情/分页链路已验证**
-- 下一个任务：**Auth 的下一步决策点已经收敛到两项：继续做 `WebView2 exchange code` 预研，或继续做 `EGL refresh token` 导入预研。若只是整理状态，也可以先提交这轮文档 + Auth Phase L1 改动。凡是改动 `src/Launcher.App/*` 后要做真实运行态验收时，仍需显式执行一次 `dotnet build src/Launcher.App/Launcher.App.csproj`，不能只依赖 `dotnet test`。**
+- 当前重点：**EGL refresh token 导入预研已完成。当前结论是：从结构上它能直接接入 Auth Phase L1，但它必须作为高级导入入口，而不是默认登录路径；同时要先过“GPL 解密实现不可直接复制”和“可能把 EGL 登出”这两个风险闸门。当前机器缺少 `%LOCALAPPDATA%\EpicGamesLauncher\Saved\Config\Windows\GameUserSettings.ini`，所以尚无真实运行态验证。宿主自动回调骨架与现有 authorization code 链路仍保持可用。**
+- 下一个任务：**现在的决策点只剩两项：1）继续预研 WebView2 exchange code；2）正式开始设计 EGL 导入实现，但要先确认是否接受解密/许可证风险并准备测试样本。如果后续再改动 `src/Launcher.App/*` 做运行态验收，仍需显式执行 `dotnet build src/Launcher.App/Launcher.App.csproj`，不能只依赖 `dotnet test`。**
 
 ## 审查修复进度
 - 已完成：31/71 项（43.7%），6 个 Batch，全部提交推送
