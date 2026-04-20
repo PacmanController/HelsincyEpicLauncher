@@ -141,18 +141,49 @@ public partial class ShellViewModel : ObservableObject, IDisposable
 
         try
         {
-            var startResult = await _authService.StartAuthorizationCodeLoginAsync();
+            var startResult = await _authService.StartExchangeCodeLoginAsync();
             if (!startResult.IsSuccess)
             {
-                Logger.Warning("打开 Epic 登录页失败 | Error={Error}", startResult.Error?.UserMessage);
-                await _dialogService.ShowErrorAsync("打开 Epic 登录页失败", startResult.Error?.UserMessage ?? "无法打开 Epic 登录页面，请重试。");
+                Logger.Warning("准备嵌入式登录失败 | Error={Error}", startResult.Error?.UserMessage);
+                await _dialogService.ShowErrorAsync("准备登录失败", startResult.Error?.UserMessage ?? "无法准备嵌入式登录，请重试。");
                 return;
             }
 
-            CanContinueAuthorizationCodeLogin = true;
-            await _dialogService.ShowInfoAsync(
-                "Epic 登录已在浏览器中打开",
-                "浏览器已打开。出于安全原因，默认登录路径不再接受整段 JSON 响应。若浏览器没有自动回到应用，但你已经拿到 authorizationCode 或完整回调链接，可使用下方的高级入口手动继续。");
+            var embeddedResult = await _dialogService.ShowEpicExchangeCodeLoginAsync(startResult.Value!);
+            if (embeddedResult.IsSuccess)
+            {
+                var completionResult = await _authService.CompleteLoginAsync(new AuthLoginCompletionInput
+                {
+                    Kind = AuthLoginCompletionKind.ExchangeCode,
+                    Payload = embeddedResult.Value!,
+                });
+
+                if (completionResult.IsSuccess)
+                {
+                    CanContinueAuthorizationCodeLogin = false;
+                    Logger.Information("嵌入式登录成功 | 用户={Name}", completionResult.Value!.DisplayName);
+                    return;
+                }
+
+                Logger.Warning("嵌入式登录完成失败 | Error={Error} | Detail={Detail}", completionResult.Error?.UserMessage, completionResult.Error?.TechnicalMessage);
+                await StartAuthorizationCodeFallbackAsync(
+                    "嵌入式登录未完成，已切换到系统浏览器",
+                    completionResult.Error?.UserMessage ?? "嵌入式登录未完成，已自动切换到系统浏览器登录。若浏览器没有自动回到应用，可使用下方高级入口继续。",
+                    fallbackReason: "exchange_code_completion_failed");
+                return;
+            }
+
+            if (string.Equals(embeddedResult.Error?.Code, "AUTH_WEBVIEW_LOGIN_CANCELLED", StringComparison.Ordinal))
+            {
+                Logger.Information("用户取消嵌入式登录");
+                return;
+            }
+
+            Logger.Warning("嵌入式登录窗口失败 | Error={Error} | Detail={Detail}", embeddedResult.Error?.UserMessage, embeddedResult.Error?.TechnicalMessage);
+            await StartAuthorizationCodeFallbackAsync(
+                "嵌入式登录不可用，已切换到系统浏览器",
+                embeddedResult.Error?.UserMessage ?? "嵌入式登录暂时不可用，已自动切换到系统浏览器登录。若浏览器没有自动回到应用，可使用下方高级入口继续。",
+                fallbackReason: embeddedResult.Error?.Code ?? "embedded_login_unavailable");
         }
         finally
         {
@@ -210,6 +241,22 @@ public partial class ShellViewModel : ObservableObject, IDisposable
         {
             IsLoggingIn = false;
         }
+    }
+
+    private async Task StartAuthorizationCodeFallbackAsync(string title, string message, string fallbackReason)
+    {
+        Logger.Information("切换到系统浏览器登录兜底 | Reason={Reason}", fallbackReason);
+
+        var fallbackResult = await _authService.StartAuthorizationCodeLoginAsync();
+        if (!fallbackResult.IsSuccess)
+        {
+            Logger.Warning("打开系统浏览器登录页失败 | Error={Error}", fallbackResult.Error?.UserMessage);
+            await _dialogService.ShowErrorAsync("打开 Epic 登录页失败", fallbackResult.Error?.UserMessage ?? "无法打开 Epic 登录页面，请重试。");
+            return;
+        }
+
+        CanContinueAuthorizationCodeLogin = true;
+        await _dialogService.ShowInfoAsync(title, message);
     }
 
     /// <summary>

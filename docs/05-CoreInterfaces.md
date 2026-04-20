@@ -99,11 +99,17 @@ public interface IAuthService
     /// <summary>当前登录用户信息</summary>
     AuthUserInfo? CurrentUser { get; }
 
-    /// <summary>打开 Epic 登录页，启动 authorization code 登录流程</summary>
+    /// <summary>打开系统浏览器，启动 authorization code 登录兜底流程</summary>
     Task<Result> StartAuthorizationCodeLoginAsync(CancellationToken ct);
+
+    /// <summary>准备嵌入式 exchange code 登录上下文</summary>
+    Task<Result<AuthExchangeCodeLoginContext>> StartExchangeCodeLoginAsync(CancellationToken ct);
 
     /// <summary>提交 authorization code 或完整回调链接，完成登录</summary>
     Task<Result<AuthUserInfo>> CompleteAuthorizationCodeLoginAsync(string authorizationCodeOrCallbackUrl, CancellationToken ct);
+
+    /// <summary>提交类型化登录结果，完成登录</summary>
+    Task<Result<AuthUserInfo>> CompleteLoginAsync(AuthLoginCompletionInput input, CancellationToken ct);
 
     /// <summary>登出</summary>
     Task<Result> LogoutAsync(CancellationToken ct);
@@ -124,6 +130,26 @@ public sealed class AuthUserInfo
     public string AccountId { get; init; } = default!;
     public string DisplayName { get; init; } = default!;
     public string Email { get; init; } = default!;
+}
+
+public sealed class AuthExchangeCodeLoginContext
+{
+    public string LoginUrl { get; init; } = default!;
+    public string? UserAgent { get; init; }
+}
+
+public enum AuthLoginCompletionKind
+{
+    AuthorizationCode,
+    CallbackUrl,
+    ExchangeCode,
+    ExternalRefreshToken,
+}
+
+public sealed class AuthLoginCompletionInput
+{
+    public AuthLoginCompletionKind Kind { get; init; }
+    public string Payload { get; init; } = default!;
 }
 ```
 

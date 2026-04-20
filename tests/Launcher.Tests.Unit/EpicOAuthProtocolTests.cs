@@ -41,6 +41,16 @@ public sealed class EpicOAuthProtocolTests
     }
 
     [Fact]
+    public void BuildEmbeddedExchangeCodeLoginUrl_Should_TargetEpicLoginPage()
+    {
+        // Act
+        var result = EpicOAuthProtocol.BuildEmbeddedExchangeCodeLoginUrl();
+
+        // Assert
+        result.Should().Be("https://www.epicgames.com/id/login");
+    }
+
+    [Fact]
     public void ExtractAuthorizationCode_WithPlainCode_Should_Succeed()
     {
         // Act

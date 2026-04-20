@@ -59,6 +59,13 @@ internal sealed class AuthService : IAuthService, IDisposable
         return Task.FromResult(_oauthHandler.StartAuthorizationCodeLogin());
     }
 
+    public Task<Result<AuthExchangeCodeLoginContext>> StartExchangeCodeLoginAsync(CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+        _logger.Information("Auth login started | Mode={Mode}", "embedded_webview_exchange_code");
+        return Task.FromResult(_oauthHandler.StartExchangeCodeLogin());
+    }
+
     public async Task<Result<AuthUserInfo>> CompleteAuthorizationCodeLoginAsync(string authorizationCodeOrCallbackUrl, CancellationToken ct = default)
     {
         _logger.Information("Auth login completion requested | AcceptedKinds={AcceptedKinds}", "authorization_code,callback_url");
@@ -69,8 +76,24 @@ internal sealed class AuthService : IAuthService, IDisposable
             return Result.Fail<AuthUserInfo>(tokenResult.Error!);
         }
 
-        var tokens = tokenResult.Value!;
+        return await CompleteAuthenticatedSessionAsync(tokenResult.Value!, ct);
+    }
 
+    public async Task<Result<AuthUserInfo>> CompleteLoginAsync(AuthLoginCompletionInput input, CancellationToken ct = default)
+    {
+        _logger.Information("Auth login completion requested | Kind={Kind}", input.Kind);
+
+        var tokenResult = await _oauthHandler.CompleteLoginAsync(input, ct);
+        if (!tokenResult.IsSuccess)
+        {
+            return Result.Fail<AuthUserInfo>(tokenResult.Error!);
+        }
+
+        return await CompleteAuthenticatedSessionAsync(tokenResult.Value!, ct);
+    }
+
+    private async Task<Result<AuthUserInfo>> CompleteAuthenticatedSessionAsync(TokenPair tokens, CancellationToken ct)
+    {
         var userInfo = await ResolveUserInfoAsync(tokens, ct);
 
         await _tokenStore.SaveTokensAsync(tokens, ct);

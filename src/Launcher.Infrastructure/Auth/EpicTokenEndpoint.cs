@@ -43,18 +43,32 @@ internal static class EpicTokenEndpoint
         };
     }
 
-    internal static Error CreateTokenExchangeError(HttpStatusCode statusCode, string body)
+    internal static Error CreateTokenExchangeError(HttpStatusCode statusCode, string body, string grantType)
     {
         var technicalMessage = $"HTTP {(int)statusCode}: {LogSanitizer.SanitizeHttpBody(body, 400)}";
         if (TryParseProviderError(body, out var providerErrorCode, out var providerError))
         {
-            if (string.Equals(providerErrorCode, "errors.com.epicgames.account.oauth.authorization_code_not_found", StringComparison.OrdinalIgnoreCase)
-                || string.Equals(providerError, "invalid_grant", StringComparison.OrdinalIgnoreCase))
+            if (string.Equals(grantType, "authorization_code", StringComparison.OrdinalIgnoreCase)
+                && (string.Equals(providerErrorCode, "errors.com.epicgames.account.oauth.authorization_code_not_found", StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(providerError, "invalid_grant", StringComparison.OrdinalIgnoreCase)))
             {
                 return new Error
                 {
                     Code = "AUTH_AUTHORIZATION_CODE_EXPIRED",
                     UserMessage = "授权码无效、已过期或已使用。请回到浏览器重新完成登录，并立即粘贴新的 authorizationCode。",
+                    TechnicalMessage = technicalMessage,
+                    CanRetry = true,
+                    Severity = ErrorSeverity.Warning,
+                };
+            }
+
+            if (string.Equals(grantType, "exchange_code", StringComparison.OrdinalIgnoreCase)
+                && string.Equals(providerError, "invalid_grant", StringComparison.OrdinalIgnoreCase))
+            {
+                return new Error
+                {
+                    Code = "AUTH_EXCHANGE_CODE_EXPIRED",
+                    UserMessage = "嵌入式登录票据无效、已过期或已使用。请重新发起登录。",
                     TechnicalMessage = technicalMessage,
                     CanRetry = true,
                     Severity = ErrorSeverity.Warning,

@@ -18,8 +18,14 @@ public interface IAuthService
     /// <summary>打开 Epic 登录页，启动 authorization code 登录流程</summary>
     Task<Result> StartAuthorizationCodeLoginAsync(CancellationToken ct = default);
 
+    /// <summary>准备嵌入式 exchange code 登录上下文</summary>
+    Task<Result<AuthExchangeCodeLoginContext>> StartExchangeCodeLoginAsync(CancellationToken ct = default);
+
     /// <summary>提交 authorization code 或完整回调链接，完成登录</summary>
     Task<Result<AuthUserInfo>> CompleteAuthorizationCodeLoginAsync(string authorizationCodeOrCallbackUrl, CancellationToken ct = default);
+
+    /// <summary>提交类型化登录结果，完成登录</summary>
+    Task<Result<AuthUserInfo>> CompleteLoginAsync(AuthLoginCompletionInput input, CancellationToken ct = default);
 
     /// <summary>登出</summary>
     Task<Result> LogoutAsync(CancellationToken ct = default);

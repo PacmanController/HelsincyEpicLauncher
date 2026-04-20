@@ -457,6 +457,20 @@
 | 主要风险 | Epic 页面桥接点可能漂移，嵌入浏览器中的验证码/cookie 行为可能不同；Legendary 还会在 Windows 上先走 logout URL 处理会话，说明该路径存在运行态副作用风险 |
 | 下一步 | 若要继续推进，不应直接大改主线，而应先做 WinUI 3 WebView2 最小 POC，验证在合适 User-Agent 下能否稳定拿到 `exchange_code`；若 POC 不稳，应立即止损并继续沿用现有系统浏览器路径 |
 
+### 2026-04-20 — WebView2 exchange code 默认登录实现
+
+**状态**: 已完成实现，待真实 Epic 运行态验收 | **验证**: `dotnet test HelsincyEpicLauncher.slnx --no-restore` 232/232 通过；`dotnet build src/Launcher.App/Launcher.App.csproj --no-restore` 通过
+
+| 类别 | 详细内容 |
+|------|----------|
+| 契约升级 | `IAuthService` 新增 `StartExchangeCodeLoginAsync()` 与 `CompleteLoginAsync(AuthLoginCompletionInput)`；原有 `StartAuthorizationCodeLoginAsync()` / `CompleteAuthorizationCodeLoginAsync()` 保留为系统浏览器兜底链路 |
+| Auth 结构 | 在 `Launcher.Infrastructure.Auth` 内新增 `ExchangeCodeGrantExecutor`，通过标准 `grant_type=exchange_code` + `token_type=eg1` 完成 token exchange；`EpicOAuthHandler` 现可返回嵌入式登录上下文并执行类型化 completion 输入 |
+| Shell / Presentation | `DialogService` 现在可承载嵌入式 Epic 登录对话框，在 WebView2 中注入最小桥接并接收 `exchange_code`；Shell 默认登录先走嵌入式自动链路，失败时再自动回退到系统浏览器 |
+| 安全边界 | UI 侧只承载浏览器和原始 `exchange_code` 回传，不做 token exchange、不缓存 token；Auth 仍负责 grant 选择、会话保存和账户信息加载 |
+| 回退策略 | 若 WebView2 初始化失败、页面加载失败或 `exchange_code` 完成登录失败，Shell 会自动切换到现有系统浏览器链路，并只在必要时保留高级“手动继续登录”入口 |
+| 测试补充 | 新增 `ExchangeCodeGrantExecutorTests`，并扩展 `EpicOAuthProtocolTests` 覆盖嵌入式登录 URL；整仓库回归测试现为 232/232 通过 |
+| 剩余风险 | 当前只完成了编译和测试级验证，尚未在真实 Epic 登录页上手动验收 WinUI 3 WebView2 是否稳定捕获 `exchange_code`，因此运行态真实性仍需单独确认 |
+
 ---
 
 ## 修复统计

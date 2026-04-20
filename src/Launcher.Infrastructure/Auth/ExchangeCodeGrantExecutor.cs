@@ -8,25 +8,25 @@ using Serilog;
 namespace Launcher.Infrastructure.Auth;
 
 /// <summary>
-/// 执行 authorization_code grant 的内部执行器。
+/// 执行 exchange_code grant 的内部执行器。
 /// </summary>
-internal sealed class AuthorizationCodeGrantExecutor : IEpicLoginGrantExecutor
+internal sealed class ExchangeCodeGrantExecutor : IEpicLoginGrantExecutor
 {
-    private readonly ILogger _logger = Log.ForContext<AuthorizationCodeGrantExecutor>();
+    private readonly ILogger _logger = Log.ForContext<ExchangeCodeGrantExecutor>();
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly EpicOAuthOptions _options;
 
-    public AuthorizationCodeGrantExecutor(IHttpClientFactory httpClientFactory, EpicOAuthOptions options)
+    public ExchangeCodeGrantExecutor(IHttpClientFactory httpClientFactory, EpicOAuthOptions options)
     {
         _httpClientFactory = httpClientFactory;
         _options = options;
     }
 
-    public string GrantType => "authorization_code";
+    public string GrantType => "exchange_code";
 
     public bool CanExecute(EpicLoginResultKind kind)
     {
-        return kind is EpicLoginResultKind.AuthorizationCode or EpicLoginResultKind.CallbackUrl;
+        return kind == EpicLoginResultKind.ExchangeCode;
     }
 
     public async Task<Result<TokenPair>> ExecuteAsync(EpicLoginResult input, CancellationToken ct)
@@ -37,7 +37,7 @@ internal sealed class AuthorizationCodeGrantExecutor : IEpicLoginGrantExecutor
             {
                 Code = "AUTH_LOGIN_RESULT_KIND_UNSUPPORTED",
                 UserMessage = "当前登录结果类型暂不支持",
-                TechnicalMessage = $"AuthorizationCodeGrantExecutor cannot handle login result kind '{input.Kind}'.",
+                TechnicalMessage = $"ExchangeCodeGrantExecutor cannot handle login result kind '{input.Kind}'.",
                 CanRetry = false,
                 Severity = ErrorSeverity.Error,
             });
@@ -54,18 +54,9 @@ internal sealed class AuthorizationCodeGrantExecutor : IEpicLoginGrantExecutor
             var parameters = new Dictionary<string, string>
             {
                 ["grant_type"] = GrantType,
-                ["code"] = input.Payload,
+                ["exchange_code"] = input.Payload,
+                ["token_type"] = "eg1",
             };
-
-            if (!string.IsNullOrWhiteSpace(input.RedirectUri))
-            {
-                parameters["redirect_uri"] = input.RedirectUri;
-            }
-
-            if (input.IncludeTokenType)
-            {
-                parameters["token_type"] = "eg1";
-            }
 
             using var request = new HttpRequestMessage(HttpMethod.Post, EpicTokenEndpoint.TokenUrl)
             {

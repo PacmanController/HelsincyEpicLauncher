@@ -61,4 +61,26 @@ internal sealed record EpicLoginResult
             IncludeTokenType = false,
         };
     }
+
+    public static EpicLoginResult FromExchangeCodeInput(string code)
+    {
+        return new EpicLoginResult
+        {
+            Kind = EpicLoginResultKind.ExchangeCode,
+            Payload = code,
+            Source = "exchange_code_webview",
+            IncludeTokenType = true,
+        };
+    }
+
+    public static EpicLoginResult FromExternalRefreshTokenInput(string refreshToken)
+    {
+        return new EpicLoginResult
+        {
+            Kind = EpicLoginResultKind.ExternalRefreshToken,
+            Payload = refreshToken,
+            Source = "external_refresh_token",
+            IncludeTokenType = true,
+        };
+    }
 }

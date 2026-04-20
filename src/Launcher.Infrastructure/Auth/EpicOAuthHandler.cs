@@ -34,6 +34,7 @@ internal sealed class EpicOAuthHandler
         _grantExecutors =
         [
             new AuthorizationCodeGrantExecutor(httpClientFactory, _options),
+            new ExchangeCodeGrantExecutor(httpClientFactory, _options),
         ];
     }
 
@@ -105,6 +106,30 @@ internal sealed class EpicOAuthHandler
         }
     }
 
+    public Result<AuthExchangeCodeLoginContext> StartExchangeCodeLogin()
+    {
+        try
+        {
+            return Result.Ok(new AuthExchangeCodeLoginContext
+            {
+                LoginUrl = EpicOAuthProtocol.BuildEmbeddedExchangeCodeLoginUrl(),
+                UserAgent = _options.EmbeddedLoginUserAgent,
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.Error(ex, "准备 exchange code 登录上下文失败");
+            return Result.Fail<AuthExchangeCodeLoginContext>(new Error
+            {
+                Code = "AUTH_EXCHANGE_LOGIN_START_FAILED",
+                UserMessage = "无法准备嵌入式登录，请重试",
+                TechnicalMessage = LogSanitizer.SanitizeHttpBody(ex.Message),
+                CanRetry = true,
+                Severity = ErrorSeverity.Error,
+            });
+        }
+    }
+
     public async Task<Result<TokenPair>> CompleteInteractiveLoginAsync(string loginResultPayload, CancellationToken ct)
     {
         var normalizedResult = EpicOAuthProtocol.NormalizeLoginResult(loginResultPayload);
@@ -114,6 +139,44 @@ internal sealed class EpicOAuthHandler
         }
 
         return await ExecuteLoginResultAsync(normalizedResult.Value!, ct);
+    }
+
+    public async Task<Result<TokenPair>> CompleteLoginAsync(AuthLoginCompletionInput input, CancellationToken ct)
+    {
+        if (input is null)
+        {
+            return Result.Fail<TokenPair>(new Error
+            {
+                Code = "AUTH_LOGIN_INPUT_MISSING",
+                UserMessage = "未识别到有效的登录结果，请重试",
+                TechnicalMessage = "Typed login completion input is null.",
+                CanRetry = true,
+                Severity = ErrorSeverity.Warning,
+            });
+        }
+
+        if (string.IsNullOrWhiteSpace(input.Payload))
+        {
+            return Result.Fail<TokenPair>(new Error
+            {
+                Code = "AUTH_LOGIN_INPUT_EMPTY",
+                UserMessage = "未识别到有效的登录结果，请重试",
+                TechnicalMessage = $"Typed login completion payload is empty for kind '{input.Kind}'.",
+                CanRetry = true,
+                Severity = ErrorSeverity.Warning,
+            });
+        }
+
+        EpicLoginResult normalizedResult = input.Kind switch
+        {
+            AuthLoginCompletionKind.AuthorizationCode => EpicLoginResult.FromAuthorizationCodeInput(input.Payload.Trim()),
+            AuthLoginCompletionKind.CallbackUrl => EpicLoginResult.FromCallbackUrlInput(input.Payload.Trim()),
+            AuthLoginCompletionKind.ExchangeCode => EpicLoginResult.FromExchangeCodeInput(input.Payload.Trim()),
+            AuthLoginCompletionKind.ExternalRefreshToken => EpicLoginResult.FromExternalRefreshTokenInput(input.Payload.Trim()),
+            _ => throw new ArgumentOutOfRangeException(nameof(input.Kind), input.Kind, "Unsupported login completion kind."),
+        };
+
+        return await ExecuteLoginResultAsync(normalizedResult, ct);
     }
 
     /// <summary>

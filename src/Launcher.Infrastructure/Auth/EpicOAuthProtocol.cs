@@ -11,6 +11,11 @@ namespace Launcher.Infrastructure.Auth;
 /// </summary>
 internal static class EpicOAuthProtocol
 {
+    public static string BuildEmbeddedExchangeCodeLoginUrl()
+    {
+        return "https://www.epicgames.com/id/login";
+    }
+
     public static string BuildAuthorizeUrl(string authorizeUrl, string clientId, string redirectUri, string state)
     {
         return $"{authorizeUrl}?client_id={Uri.EscapeDataString(clientId)}&response_type=code&redirect_uri={Uri.EscapeDataString(redirectUri)}&state={Uri.EscapeDataString(state)}";
