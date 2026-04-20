@@ -443,6 +443,20 @@
 | 架构边界 | 预研结论要求：读取 EGL RememberMe 的逻辑留在 `Launcher.Infrastructure.Auth`，Shell 只负责确认提示和触发；不应把路径配置暴露到 Settings UI，也不应让 App 宿主参与协议处理 |
 | 下一步 | 真要开始实现时，建议先做合规与样本准备，再落 `EpicLauncherRememberMeReader` 与 `ExternalRefreshTokenGrantExecutor`；如果暂时不想处理解密/许可证风险，则下一步更适合优先推进 WebView2 exchange code |
 
+### 2026-04-20 — WebView2 exchange code 预研
+
+**状态**: 已完成设计预研，未开始实现 | **输出**: [15-WebView2ExchangeCodeResearch.md](15-WebView2ExchangeCodeResearch.md)
+
+| 类别 | 详细内容 |
+|------|----------|
+| 外部事实 | Legendary 的 WebView 登录是 optional capability，不是主前提；无 WebView 或显式 `--disable-webview` 时，会回退到系统浏览器并让用户手工复制 `authorizationCode` |
+| 协议结论 | Legendary 的嵌入式登录不是等待 loopback 回调，而是通过页面桥接直接拿 `exchange_code`，随后调用标准 `grant_type=exchange_code` + `token_type=eg1` 完成登录 |
+| 本仓库兼容性 | 当前仓库已经有可工作的系统浏览器 + authorization code 兜底链路，因此 WebView2 的价值是“压缩人工步骤”，而不是“补齐底层登录能力” |
+| 基建现状 | 仓库里当前没有 `Microsoft.Web.WebView2` 依赖、`WebView2` 控件封装或现成的嵌入登录容器，因此若立项，必然是新的跨模块契约变更任务 |
+| 架构边界 | 推荐把 WebView2 容器留在 Presentation，只负责收集 `exchange_code`；grant 选择、token exchange、会话保存继续留在 Auth，且应按既有设计把 completion 输入升级为窄 DTO |
+| 主要风险 | Epic 页面桥接点可能漂移，嵌入浏览器中的验证码/cookie 行为可能不同；Legendary 还会在 Windows 上先走 logout URL 处理会话，说明该路径存在运行态副作用风险 |
+| 下一步 | 若要继续推进，不应直接大改主线，而应先做 WinUI 3 WebView2 最小 POC，验证在合适 User-Agent 下能否稳定拿到 `exchange_code`；若 POC 不稳，应立即止损并继续沿用现有系统浏览器路径 |
+
 ---
 
 ## 修复统计
