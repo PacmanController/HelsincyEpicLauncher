@@ -173,8 +173,20 @@ internal sealed class EpicOAuthHandler
             AuthLoginCompletionKind.CallbackUrl => EpicLoginResult.FromCallbackUrlInput(input.Payload.Trim()),
             AuthLoginCompletionKind.ExchangeCode => EpicLoginResult.FromExchangeCodeInput(input.Payload.Trim()),
             AuthLoginCompletionKind.ExternalRefreshToken => EpicLoginResult.FromExternalRefreshTokenInput(input.Payload.Trim()),
-            _ => throw new ArgumentOutOfRangeException(nameof(input.Kind), input.Kind, "Unsupported login completion kind."),
+            _ => null!,
         };
+
+        if (normalizedResult is null)
+        {
+            return Result.Fail<TokenPair>(new Error
+            {
+                Code = "AUTH_LOGIN_INPUT_KIND_UNSUPPORTED",
+                UserMessage = "当前登录结果类型暂不支持",
+                TechnicalMessage = $"Unsupported typed login completion kind '{input.Kind}'.",
+                CanRetry = false,
+                Severity = ErrorSeverity.Error,
+            });
+        }
 
         return await ExecuteLoginResultAsync(normalizedResult, ct);
     }

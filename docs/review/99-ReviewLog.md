@@ -471,6 +471,19 @@
 | 测试补充 | 新增 `ExchangeCodeGrantExecutorTests`，并扩展 `EpicOAuthProtocolTests` 覆盖嵌入式登录 URL；整仓库回归测试现为 232/232 通过 |
 | 剩余风险 | 当前只完成了编译和测试级验证，尚未在真实 Epic 登录页上手动验收 WinUI 3 WebView2 是否稳定捕获 `exchange_code`，因此运行态真实性仍需单独确认 |
 
+### 2026-04-21 — WebView2 默认登录主线加固
+
+**状态**: 已完成实现级加固，待真实 Epic 运行态验收 | **验证**: `dotnet test HelsincyEpicLauncher.slnx --no-restore` 242/242 通过；`dotnet build src/Launcher.App/Launcher.App.csproj --no-restore` 通过
+
+| 类别 | 详细内容 |
+|------|----------|
+| 信任边界 | `DialogService` 现在只接受来自受信任 Epic HTTPS 页面上下文的 WebView2 桥接消息，并拒绝打开非 Epic 域名的嵌入式登录外链，避免默认登录主线对任意文档来源过度信任 |
+| 会话隔离 | 嵌入式登录现在使用独立 WebView2 用户数据目录，并在初始化后尽力清理浏览数据，避免默认登录主线复用残留 cookie/profile 带来不稳定的账号切换和会话污染 |
+| 线程安全 | `CancellationToken` 驱动的登录取消现在通过 UI `DispatcherQueue` 回到对话框线程再执行关闭逻辑，避免后续真正接入超时或应用退出时发生跨线程关闭对话框 |
+| 契约防御 | `AuthService.CompleteLoginAsync(...)` 现在对空 completion 输入先返回结构化错误，而不是在记录日志前直接解引用 `input.Kind` |
+| 测试补充 | 新增 `EpicLoginWebViewBridgeTests` 覆盖 Epic 域名信任与桥接消息解析；整仓库测试总数已从 232 提升到 242，全部通过 |
+| 剩余风险 | 当前仍然缺少真实 Epic 登录页运行态证据，尚未证明 Epic 页面桥接点在 WinUI 3 WebView2 中长期稳定，因此主风险已从“本地实现边界过宽”收敛为“外部页面行为是否稳定” |
+
 ---
 
 ## 修复统计

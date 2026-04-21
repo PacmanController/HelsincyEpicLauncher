@@ -9,6 +9,13 @@ namespace Launcher.Presentation.Shell;
 /// </summary>
 internal static class EpicLoginWebViewBridge
 {
+    private static readonly string[] AllowedEpicHosts =
+    [
+        "epicgames.com",
+        "www.epicgames.com",
+        "accounts.epicgames.com",
+    ];
+
     internal const string BootstrapScript = """
         (() => {
             const post = (payload) => {
@@ -40,6 +47,28 @@ internal static class EpicLoginWebViewBridge
             };
         })();
         """;
+
+    public static bool IsTrustedEpicUri(Uri? uri)
+    {
+        if (uri is null)
+        {
+            return false;
+        }
+
+        if (!string.Equals(uri.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        return AllowedEpicHosts.Any(host =>
+            string.Equals(uri.Host, host, StringComparison.OrdinalIgnoreCase)
+            || uri.Host.EndsWith($".{host}", StringComparison.OrdinalIgnoreCase));
+    }
+
+    public static bool IsTrustedExternalLaunchUri(Uri? uri)
+    {
+        return IsTrustedEpicUri(uri);
+    }
 
     public static bool TryParseMessage(string rawMessage, out EpicLoginWebViewMessage? message)
     {

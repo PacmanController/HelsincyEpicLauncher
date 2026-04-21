@@ -70,15 +70,15 @@ internal sealed class ExchangeCodeGrantExecutor : IEpicLoginGrantExecutor
 
             if (!response.IsSuccessStatusCode)
             {
-                EpicTokenEndpoint.TryParseProviderError(body, out var providerErrorCode, out var providerError);
+                var hasProviderError = EpicTokenEndpoint.TryParseProviderError(body, out var providerErrorCode, out var providerError);
                 _logger.Warning(
                     "Auth token exchange failed | GrantType={GrantType} | Kind={Kind} | Source={Source} | StatusCode={StatusCode} | ProviderErrorCode={ProviderErrorCode} | ProviderError={ProviderError} | Body={Body}",
                     GrantType,
                     input.Kind,
                     input.Source,
                     response.StatusCode,
-                    providerErrorCode,
-                    providerError,
+                    hasProviderError ? providerErrorCode : null,
+                    hasProviderError ? providerError : null,
                     LogSanitizer.SanitizeHttpBody(body, 400));
                 return Result.Fail<TokenPair>(EpicTokenEndpoint.CreateTokenExchangeError(response.StatusCode, body, GrantType));
             }

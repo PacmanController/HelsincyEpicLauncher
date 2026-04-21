@@ -25,6 +25,7 @@
 - EGL refresh token 导入预研已完成：Legendary 的 `--import` 本质上是从 EGL `GameUserSettings.ini` 的 `[RememberMe]` / `Data` 解析 refresh token，再走标准 `grant_type=refresh_token` 建会话；这条路与当前 Auth Phase L1 架构兼容，但必须作为高级入口，并先处理“可能把 EGL 登出”和“不能直接复制 GPL 解密实现”两项风险
 - WebView2 exchange code 预研已完成：Legendary 的嵌入式登录只是可选增强能力，本质上通过页面桥接拿 `exchange_code` 后走标准 `grant_type=exchange_code`；当前仓库没有现成 WebView2 基建，因此若要推进，应先做 WinUI 3 最小 POC，而不是直接扩大主线实现面
 - 默认 Epic 登录路径已正式切到“嵌入式 WebView2 + exchange_code 自动完成”：Auth 公共契约新增 `StartExchangeCodeLoginAsync()` 与 `CompleteLoginAsync(AuthLoginCompletionInput)`，Infrastructure 新增 `ExchangeCodeGrantExecutor`，Shell 通过嵌入式登录对话框承载 Epic 登录页并在失败时自动回退到系统浏览器兜底；当前 `dotnet test HelsincyEpicLauncher.slnx --no-restore` 为 232/232 通过，`dotnet build src/Launcher.App/Launcher.App.csproj --no-restore` 通过，但真实 Epic 运行态仍待人工验收
+- WebView2 默认登录主线已完成第一轮风险加固：嵌入式登录现在只接受受信任 Epic HTTPS 页面发出的桥接消息，拒绝非 Epic 外链，使用独立 WebView2 用户数据目录并尽力清理浏览数据，同时把取消关闭动作调回 UI 线程执行；新增桥接单测后，`dotnet test HelsincyEpicLauncher.slnx --no-restore` 当前为 242/242 通过，`dotnet build src/Launcher.App/Launcher.App.csproj --no-restore` 继续通过
 
 ### Task 8.4 - UI 打磨 + 错误闭环 (2026-04-16)
 - FabLibraryViewModel：新增 HasError/ErrorMessage（搜索/加载失败时设置）、IsOffline（注入 INetworkMonitor 实时跟踪网络状态）；Dispose 时解除 NetworkStatusChanged 订阅

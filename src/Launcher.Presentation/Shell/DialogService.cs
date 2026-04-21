@@ -1,12 +1,14 @@
 // Copyright (c) Helsincy. All rights reserved.
 
 using System.Diagnostics;
+using System.IO;
 using System.Text.Json;
 using Launcher.Application.Modules.Auth.Contracts;
 using Launcher.Shared;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
+using Microsoft.Web.WebView2.Core;
 using Serilog;
 
 namespace Launcher.Presentation.Shell;
@@ -159,6 +161,14 @@ public sealed class DialogService : IDialogService
             VerticalAlignment = VerticalAlignment.Center,
         };
 
+        var embeddedLoginUserDataFolder = Path.Combine(
+            Path.GetTempPath(),
+            "HelsincyEpicLauncher",
+            "AuthWebView2",
+            Guid.NewGuid().ToString("N"));
+
+        Directory.CreateDirectory(embeddedLoginUserDataFolder);
+
         var webView = new WebView2
         {
             HorizontalAlignment = HorizontalAlignment.Stretch,
@@ -218,6 +228,10 @@ public sealed class DialogService : IDialogService
         string? exchangeCode = null;
         Error? dialogError = null;
         bool dialogClosed = false;
+        var dispatcherQueue = Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread();
+        Uri? currentDocumentUri = Uri.TryCreate(loginContext.LoginUrl, UriKind.Absolute, out var initialUri)
+            ? initialUri
+            : null;
 
         void CloseDialog()
         {
@@ -244,13 +258,16 @@ public sealed class DialogService : IDialogService
 
         using var cancellationRegistration = ct.Register(() =>
         {
-            SetDialogError(new Error
+            dispatcherQueue.TryEnqueue(() =>
             {
-                Code = "AUTH_WEBVIEW_LOGIN_CANCELLED",
-                UserMessage = "已取消登录",
-                TechnicalMessage = "Embedded login dialog was cancelled by cancellation token.",
-                CanRetry = true,
-                Severity = ErrorSeverity.Warning,
+                SetDialogError(new Error
+                {
+                    Code = "AUTH_WEBVIEW_LOGIN_CANCELLED",
+                    UserMessage = "已取消登录",
+                    TechnicalMessage = "Embedded login dialog was cancelled by cancellation token.",
+                    CanRetry = true,
+                    Severity = ErrorSeverity.Warning,
+                });
             });
         });
 
@@ -258,7 +275,11 @@ public sealed class DialogService : IDialogService
         {
             try
             {
-                await webView.EnsureCoreWebView2Async();
+                var environment = await CoreWebView2Environment.CreateWithOptionsAsync(
+                    browserExecutableFolder: null,
+                    userDataFolder: embeddedLoginUserDataFolder,
+                    options: null);
+                await webView.EnsureCoreWebView2Async(environment);
 
                 var coreWebView = webView.CoreWebView2;
                 if (coreWebView is null)
@@ -294,12 +315,27 @@ public sealed class DialogService : IDialogService
                     }
                 }
 
+                try
+                {
+                    await coreWebView.Profile.ClearBrowsingDataAsync();
+                }
+                catch (Exception ex)
+                {
+                    Logger.Warning(ex, "清理嵌入式登录会话数据失败，将继续尝试新的 WebView2 配置目录");
+                }
+
                 await coreWebView.AddScriptToExecuteOnDocumentCreatedAsync(EpicLoginWebViewBridge.BootstrapScript);
 
                 coreWebView.WebMessageReceived += (_, args) =>
                 {
                     if (!EpicLoginWebViewBridge.TryParseMessage(args.TryGetWebMessageAsString(), out var message) || message is null)
                     {
+                        return;
+                    }
+
+                    if (!EpicLoginWebViewBridge.IsTrustedEpicUri(currentDocumentUri))
+                    {
+                        Logger.Warning("忽略来自非受信任页面的嵌入式登录消息 | Uri={Uri} | Type={Type}", currentDocumentUri, message.Type);
                         return;
                     }
 
@@ -320,6 +356,12 @@ public sealed class DialogService : IDialogService
                     if (string.Equals(message.Type, "launch_external_url", StringComparison.OrdinalIgnoreCase)
                         && Uri.TryCreate(message.Url, UriKind.Absolute, out var externalUri))
                     {
+                        if (!EpicLoginWebViewBridge.IsTrustedExternalLaunchUri(externalUri))
+                        {
+                            Logger.Warning("拒绝打开非受信任的嵌入式登录外链 | Url={Url}", externalUri);
+                            return;
+                        }
+
                         Logger.Information("嵌入式登录请求打开外部链接 | Url={Url}", externalUri);
                         try
                         {
@@ -338,6 +380,9 @@ public sealed class DialogService : IDialogService
 
                 coreWebView.NavigationStarting += (_, args) =>
                 {
+                    currentDocumentUri = Uri.TryCreate(args.Uri, UriKind.Absolute, out var nextUri)
+                        ? nextUri
+                        : null;
                     progressRing.IsActive = true;
                     statusText.Text = "正在连接 Epic 登录服务...";
                     Logger.Debug("嵌入式登录开始导航 | Uri={Uri}", args.Uri);
@@ -345,6 +390,9 @@ public sealed class DialogService : IDialogService
 
                 coreWebView.NavigationCompleted += (_, args) =>
                 {
+                    currentDocumentUri = Uri.TryCreate(coreWebView.Source, UriKind.Absolute, out var completedUri)
+                        ? completedUri
+                        : currentDocumentUri;
                     progressRing.IsActive = false;
 
                     if (!args.IsSuccess)
@@ -384,16 +432,19 @@ public sealed class DialogService : IDialogService
         var result = await dialog.ShowAsync();
         if (!string.IsNullOrWhiteSpace(exchangeCode))
         {
+            CleanupEmbeddedLoginUserDataFolder(embeddedLoginUserDataFolder);
             return Result.Ok(exchangeCode);
         }
 
         if (dialogError is not null)
         {
+            CleanupEmbeddedLoginUserDataFolder(embeddedLoginUserDataFolder);
             return Result.Fail<string>(dialogError);
         }
 
         if (result == ContentDialogResult.None)
         {
+            CleanupEmbeddedLoginUserDataFolder(embeddedLoginUserDataFolder);
             return Result.Fail<string>(new Error
             {
                 Code = "AUTH_WEBVIEW_LOGIN_CANCELLED",
@@ -404,6 +455,8 @@ public sealed class DialogService : IDialogService
             });
         }
 
+        CleanupEmbeddedLoginUserDataFolder(embeddedLoginUserDataFolder);
+
         return Result.Fail<string>(new Error
         {
             Code = "AUTH_WEBVIEW_LOGIN_FAILED",
@@ -412,6 +465,21 @@ public sealed class DialogService : IDialogService
             CanRetry = true,
             Severity = ErrorSeverity.Warning,
         });
+    }
+
+    private static void CleanupEmbeddedLoginUserDataFolder(string folderPath)
+    {
+        try
+        {
+            if (Directory.Exists(folderPath))
+            {
+                Directory.Delete(folderPath, recursive: true);
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.Debug(ex, "清理嵌入式登录 WebView2 临时目录失败 | Path={Path}", folderPath);
+        }
     }
 
     public Task<TResult?> ShowCustomAsync<TResult>(object dialogViewModel)

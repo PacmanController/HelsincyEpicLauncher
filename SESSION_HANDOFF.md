@@ -1,14 +1,14 @@
 # 会话交接文档
 
 ## 最后更新
-- 时间：2026-04-20
-- 完成任务：Epic 两步式登录验证 + Auth 手动 JSON 输入止血 + Auth 自动回调预研/loopback 清单整理 + Auth 宿主自动回调骨架接入 + Auth 第二实例自动回调转发正式修复并完成运行态验收 + Legendary 参考实现分析与下一阶段 Auth 设计文档定稿 + Auth Phase L1 内部 completion 抽象与结构化日志归一 + EGL refresh token 导入预研 + WebView2 exchange code 预研与默认登录实现 + Fab 网页端接口误接入修补 + Fab owned 回退统一到流式详情/分页链路
+- 时间：2026-04-21
+- 完成任务：Epic 两步式登录验证 + Auth 手动 JSON 输入止血 + Auth 自动回调预研/loopback 清单整理 + Auth 宿主自动回调骨架接入 + Auth 第二实例自动回调转发正式修复并完成运行态验收 + Legendary 参考实现分析与下一阶段 Auth 设计文档定稿 + Auth Phase L1 内部 completion 抽象与结构化日志归一 + EGL refresh token 导入预研 + WebView2 exchange code 预研、默认登录实现与风险加固 + Fab 网页端接口误接入修补 + Fab owned 回退统一到流式详情/分页链路
 
 ## 当前项目状态
 - 最后成功编译：是（dotnet build 成功）
-- 最后测试结果：全部通过（232/232；仍有 1 条既有 `CA1816` 警告未处理）
-- 当前重点：**默认 Epic 登录路径已升级为“嵌入式 WebView2 + exchange_code 自动完成”，系统浏览器 + authorization code/回调 URL 只保留为明确的兜底链路。Auth 已完成 typed completion 与 `ExchangeCodeGrantExecutor` 接入，Shell 也已能承载嵌入式登录对话框并在失败时自动回退。但这条新主线目前只完成了编译和测试级验证，尚未在真实 Epic 登录页上完成 WinUI 3 运行态验收。**
-- 下一个任务：**优先做真实运行态验收，确认 WinUI 3 WebView2 是否能稳定加载 Epic 登录页、桥接 `exchange_code` 并完成自动登录；若运行态桥接不稳定，再决定是否继续增强 WebView2，还是回退到更保守的系统浏览器自动回调/会话导入路线。若后续改动 `src/Launcher.App/*` 做运行态验收，仍需显式执行 `dotnet build src/Launcher.App/Launcher.App.csproj`，不能只依赖 `dotnet test`。**
+- 最后测试结果：全部通过（242/242；仍有 1 条既有 `CA1816` 警告未处理）
+- 当前重点：**默认 Epic 登录路径仍是“嵌入式 WebView2 + exchange_code 自动完成”，但这条主线已经补上了 4 个此前明确的实现风险：受信任 Epic 页面来源校验、非 Epic 外链拒绝、独立 WebView2 会话目录与浏览数据清理、以及取消回调的 UI 线程安全。Auth typed completion 也已补上空输入保护。当前剩余的不确定性主要不在本地代码，而在真实 Epic 登录页是否会持续暴露可用桥接点。**
+- 下一个任务：**优先做真实运行态验收，确认 WinUI 3 WebView2 是否能稳定加载 Epic 登录页、桥接 `exchange_code` 并完成自动登录；如果运行态桥接不稳定，优先考虑把 WebView2 降级为高级入口，而不是继续让它承担默认主线。若后续改动 `src/Launcher.App/*` 做运行态验收，仍需显式执行 `dotnet build src/Launcher.App/Launcher.App.csproj`，不能只依赖 `dotnet test`。**
 
 ## 审查修复进度
 - 已完成：31/71 项（43.7%），6 个 Batch，全部提交推送

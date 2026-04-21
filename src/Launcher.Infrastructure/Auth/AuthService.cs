@@ -81,6 +81,18 @@ internal sealed class AuthService : IAuthService, IDisposable
 
     public async Task<Result<AuthUserInfo>> CompleteLoginAsync(AuthLoginCompletionInput input, CancellationToken ct = default)
     {
+        if (input is null)
+        {
+            return Result.Fail<AuthUserInfo>(new Error
+            {
+                Code = "AUTH_LOGIN_INPUT_MISSING",
+                UserMessage = "未识别到有效的登录结果，请重试",
+                TechnicalMessage = "Typed login completion input is null.",
+                CanRetry = true,
+                Severity = ErrorSeverity.Warning,
+            });
+        }
+
         _logger.Information("Auth login completion requested | Kind={Kind}", input.Kind);
 
         var tokenResult = await _oauthHandler.CompleteLoginAsync(input, ct);
