@@ -2,13 +2,13 @@
 
 ## 最后更新
 - 时间：2026-04-22
-- 完成任务：Epic 两步式登录验证 + Auth 手动 JSON 输入止血 + Auth 自动回调预研/loopback 清单整理 + Auth 宿主自动回调骨架接入 + Auth 第二实例自动回调转发正式修复并完成运行态验收 + Legendary 参考实现分析与下一阶段 Auth 设计文档定稿 + Auth Phase L1 内部 completion 抽象与结构化日志归一 + EGL refresh token 导入预研 + WebView2 exchange code 预研、默认登录实现与风险加固 + Fab 网页端接口误接入修补 + Fab owned 回退统一到流式详情/分页链路 + WebView2 运行态 loader 缺失修正 + Fab 预览追踪锚点保留与无图占位语义细分 + Fab 真实预览运行态修正（隐藏 WebView2 桌面级视口 + preview 成功结果缓存）
+- 完成任务：Epic 两步式登录验证 + Auth 手动 JSON 输入止血 + Auth 自动回调预研/loopback 清单整理 + Auth 宿主自动回调骨架接入 + Auth 第二实例自动回调转发正式修复并完成运行态验收 + Legendary 参考实现分析与下一阶段 Auth 设计文档定稿 + Auth Phase L1 内部 completion 抽象与结构化日志归一 + EGL refresh token 导入预研 + WebView2 exchange code 预研、默认登录实现与风险加固 + Fab 网页端接口误接入修补 + Fab owned 回退统一到流式详情/分页链路 + WebView2 运行态 loader 缺失修正 + Fab 预览追踪锚点保留与无图占位语义细分 + Fab 真实预览运行态修正（隐藏 WebView2 桌面级视口 + preview 成功结果缓存） + Fab 页面状态提示区防覆盖修正
 
 ## 当前项目状态
 - 最后成功编译：是（dotnet build 成功）
-- 最后测试结果：Fab 预览相关聚焦测试通过（8/8：`FabPreviewUrlReadServiceTests`、`EpicOwnedFabCatalogClientTests`、`FabCatalogReadServiceTests`）；本轮未重新跑全量测试
+- 最后测试结果：Fab 页面状态区修正后的 `Launcher.App` 宿主构建通过；此前 Fab 预览相关聚焦测试通过（8/8：`FabPreviewUrlReadServiceTests`、`EpicOwnedFabCatalogClientTests`、`FabCatalogReadServiceTests`）；本轮未重新跑全量测试
 - 当前重点：**真实预览恢复已经完成第一轮运行态闭环：当前代码会在卡片进入视口且原始 `ThumbnailUrl` 为空时，通过 `IFabPreviewUrlReadService` 触发按需解析；Presentation 的 `FabListingPageReadService` 会用受控 WebView2 打开 `www.fab.com/listings/{listingId}`，Infrastructure 的 `FabListingHtmlPreviewMetadataResolver` 再从页面 HTML 中提取 `media.fab.com/image_previews/...` 真实图链。运行态修正已确认两点关键约束：隐藏 probe 必须保留 `1366x900` 级别桌面视口，且 resolver 只能缓存成功 URL，不能对首轮空结果做负缓存。**
-- 下一个任务：**当前代码已适合提交推送；提交后优先排查 Fab 页面新的 UI 异常，即截图里出现的“加载失败 / 读取已拥有 Fab 资产失败 / 重试”错误条为何会覆盖在资产网格上。若继续做运行态验收或重新构建 `src/Launcher.App/*`，仍需先关闭正在运行的 `Launcher.App`，否则会因为 DLL/PDB 被锁导致构建失败。**
+- 下一个任务：**Fab 错误条覆盖卡片的问题已经按布局层修复；下一步应继续区分“真正首屏加载失败”和“已有资产时的刷新/翻页失败”，决定是否把现有 `HasError` 页面级提示收敛成更轻量的非阻断提示。若继续做运行态验收或重新构建 `src/Launcher.App/*`，仍需先关闭正在运行的 `Launcher.App`，否则会因为 DLL/PDB 被锁导致构建失败。**
 
 ## 审查修复进度
 - 已完成：31/71 项（43.7%），6 个 Batch，全部提交推送

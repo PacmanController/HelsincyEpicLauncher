@@ -14,6 +14,7 @@
 - 真实运行态验收确认：隐藏 WebView2 probe 不能使用 `1x1` 极小视口；`FabListingPageReadService` 现改为离屏但保持 `1366x900` 桌面级视口，否则 Fab listing 会进入过度收缩/延迟分支，导致页面 HTML 长时间拿不到 `image_previews` 预览信号
 - `FabListingHtmlPreviewMetadataResolver` 现只缓存成功解析出的 preview URL，不再对 `null/empty` 结果做负缓存；这样 listing 首次未水合时，后续可见卡片再次进入视口仍能重试并命中真实预览，而不会被第一次空结果永久压住
 - `FabPreviewUrlReadServiceTests` 追加覆盖 `ListingIdentifier` 缺失时回退 `productId`，以及“首次空结果、再次重试成功”的场景，避免运行态回归成只要第一次没拿到图就长期显示“平台未返回预览”
+- `FabLibraryPage` 状态提示区已从资产网格层中拆出：离线提示和错误提示现在统一放进独立的状态区，不再与 `ScrollViewer` / 资产卡片共享同一 `Grid.Row`，修复“读取已拥有 Fab 资产失败”错误条覆盖卡片内容的 UI bug
 
 ### Auth 运行态验收修正 (2026-04-22)
 - 真实运行态验收确认：默认启动目录 `src/Launcher.App/bin/Debug/net9.0-windows10.0.19041.0` 缺少根层 `WebView2Loader.dll`，导致 WebView2 在 `CoreWebView2Environment.CreateWithOptionsAsync(...)` 阶段抛出“找不到指定的模块”，Shell 随后自动回退到系统浏览器登录兜底
