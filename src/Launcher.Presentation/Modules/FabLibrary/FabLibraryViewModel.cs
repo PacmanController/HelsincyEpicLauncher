@@ -5,6 +5,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Launcher.Application.Modules.FabLibrary.Contracts;
 using Launcher.Application.Modules.Network.Contracts;
+using Launcher.Presentation.Shell;
 using Launcher.Shared;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml.Media.Imaging;
@@ -23,6 +24,7 @@ public partial class FabLibraryViewModel : ObservableObject, IDisposable
     private readonly IThumbnailCacheService _thumbnailCache;
     private readonly IFabPreviewUrlReadService _previewUrlReadService;
     private readonly INetworkMonitor _networkMonitor;
+    private readonly INotificationService _notificationService;
     private readonly DispatcherQueue _dispatcherQueue;
     private CancellationTokenSource _searchCts = new();
     private bool _disposed;
@@ -60,12 +62,14 @@ public partial class FabLibraryViewModel : ObservableObject, IDisposable
         IFabCatalogReadService catalogService,
         IThumbnailCacheService thumbnailCache,
         IFabPreviewUrlReadService previewUrlReadService,
-        INetworkMonitor networkMonitor)
+        INetworkMonitor networkMonitor,
+        INotificationService notificationService)
     {
         _catalogService = catalogService;
         _thumbnailCache = thumbnailCache;
         _previewUrlReadService = previewUrlReadService;
         _networkMonitor = networkMonitor;
+        _notificationService = notificationService;
         _dispatcherQueue = DispatcherQueue.GetForCurrentThread();
         _isOffline = !networkMonitor.IsNetworkAvailable;
         _networkMonitor.NetworkStatusChanged += OnNetworkStatusChanged;
@@ -196,6 +200,7 @@ public partial class FabLibraryViewModel : ObservableObject, IDisposable
 
     private async Task SearchInternalAsync(int page, bool append = false)
     {
+        var hadVisibleAssets = Assets.Count > 0;
         var query = new FabSearchQuery
         {
             Keyword = string.IsNullOrWhiteSpace(SearchKeyword) ? null : SearchKeyword.Trim(),
@@ -210,8 +215,7 @@ public partial class FabLibraryViewModel : ObservableObject, IDisposable
         {
             if (string.Equals(result.Error?.Code, "AUTH_NOT_AUTHENTICATED", StringComparison.Ordinal))
             {
-                HasError = false;
-                ErrorMessage = string.Empty;
+                ClearPageError();
 
                 if (!append)
                 {
@@ -228,15 +232,30 @@ public partial class FabLibraryViewModel : ObservableObject, IDisposable
                 return;
             }
 
+            var userMessage = result.Error?.UserMessage ?? "加载资产列表失败";
+            if (append || hadVisibleAssets)
+            {
+                ClearPageError();
+                _notificationService.ShowWarning(userMessage);
+                Logger.Warning("Fab 搜索失败（非阻断）: {Error}", result.Error?.TechnicalMessage);
+                return;
+            }
+
             HasError = true;
-            ErrorMessage = result.Error?.UserMessage ?? "加载资产列表失败";
-            Logger.Warning("Fab 搜索失败: {Error}", result.Error?.TechnicalMessage);
+            ErrorMessage = userMessage;
+            Logger.Warning("Fab 搜索失败（阻断）: {Error}", result.Error?.TechnicalMessage);
             return;
         }
 
-        HasError = false;
+        ClearPageError();
         var pagedResult = result.Value!;
         UpdatePageState(pagedResult, append);
+    }
+
+    private void ClearPageError()
+    {
+        HasError = false;
+        ErrorMessage = string.Empty;
     }
 
     private void UpdatePageState(PagedResult<FabAssetSummary> pagedResult, bool append)
