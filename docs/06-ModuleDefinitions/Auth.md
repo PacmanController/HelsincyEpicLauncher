@@ -30,7 +30,7 @@
 ### OAuth 回调约束
 
 - 当前默认登录路径已升级为嵌入式 WebView2 + `exchange_code` 自动完成；若嵌入式登录不可用或用户主动取消，则回退到系统浏览器链路
-- 系统浏览器兜底路径仍不接受完整 JSON 响应；若需要人工继续登录，只允许输入 `authorizationCode` 或完整回调 URL
+- 系统浏览器兜底路径仍优先要求 `authorizationCode` 或完整回调 URL；但如果 Epic 浏览器链路最终只显示 JSON 响应，Auth 会在高级手动继续入口中仅提取 `authorizationCode` 或 `redirectUrl`，避免用户必须手工拆分敏感字段
 - App 宿主现在已能把启动参数或第二实例转发过来的“完整回调 URL 候选负载”自动交回 Auth；因此一旦后续拿到可用的 loopback 或协议回调来源，应用内部已具备自动完成登录的消费骨架
 - 当前 clientId 的成熟外部交互链路不是本地 loopback localhost 回调，因此登录契约不再要求 UI 直接等待本地 HTTP 回调
 - 若后续需要支持其他类型的回调接收方式，必须封装在 Auth 模块内部，不能把协议细节泄漏到 Shell / Settings / App；Presentation 最多只承载浏览器容器和原始结果回传
@@ -87,7 +87,7 @@ public sealed class TokenPair
 6. TokenStore 安全存储 token pair
 7. 返回 AuthUserInfo 给 Shell
 8. Shell 更新登录状态 UI
-9. 若嵌入式登录不可用、失败或用户主动取消，再回退到系统浏览器链路；若浏览器没有自动回到应用，仍可通过显式“继续登录”入口提交 `authorizationCode` 或完整回调 URL
+9. 若嵌入式登录不可用、失败或用户主动取消，再回退到系统浏览器链路；若浏览器没有自动回到应用，仍可通过显式“继续登录”入口提交 `authorizationCode`、完整回调 URL，或必要时直接粘贴 Epic 返回的 JSON 响应，由 Auth 只提取必需字段完成登录
 ```
 
 ### 启动时会话恢复

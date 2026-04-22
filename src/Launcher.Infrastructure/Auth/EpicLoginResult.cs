@@ -39,6 +39,17 @@ internal sealed record EpicLoginResult
         };
     }
 
+    public static EpicLoginResult FromJsonAuthorizationCodeInput(string code)
+    {
+        return new EpicLoginResult
+        {
+            Kind = EpicLoginResultKind.AuthorizationCode,
+            Payload = code,
+            Source = "json_authorization_code_input",
+            IncludeTokenType = true,
+        };
+    }
+
     public static EpicLoginResult FromCallbackUrlInput(string code)
     {
         return new EpicLoginResult
@@ -46,6 +57,17 @@ internal sealed record EpicLoginResult
             Kind = EpicLoginResultKind.CallbackUrl,
             Payload = code,
             Source = "callback_url_input",
+            IncludeTokenType = true,
+        };
+    }
+
+    public static EpicLoginResult FromJsonRedirectUrlInput(string code)
+    {
+        return new EpicLoginResult
+        {
+            Kind = EpicLoginResultKind.CallbackUrl,
+            Payload = code,
+            Source = "json_redirect_url_input",
             IncludeTokenType = true,
         };
     }

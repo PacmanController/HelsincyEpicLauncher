@@ -1,6 +1,7 @@
 // Copyright (c) Helsincy. All rights reserved.
 
 using System.Collections.Specialized;
+using System.Text.Json;
 using Launcher.Shared;
 using Launcher.Shared.Logging;
 
@@ -43,12 +44,13 @@ internal static class EpicOAuthProtocol
         var trimmedInput = rawInput.Trim();
         if (trimmedInput.Length > 0 && trimmedInput[0] == '{')
         {
-            return Result.Fail<EpicLoginResult>(CreateError(
-                "AUTH_AUTHORIZATION_CODE_JSON_NOT_ALLOWED",
-                "请不要粘贴完整响应内容；只粘贴 authorizationCode 或完整回调链接。",
-                "Manual authorization code input must not contain a full JSON payload.",
-                canRetry: true,
-                severity: ErrorSeverity.Warning));
+            var jsonResult = TryExtractLoginResultFromJson(trimmedInput);
+            if (jsonResult.IsSuccess)
+            {
+                return jsonResult;
+            }
+
+            return Result.Fail<EpicLoginResult>(jsonResult.Error!);
         }
 
         if (trimmedInput.Length >= 2 && trimmedInput[0] == '"' && trimmedInput[^1] == '"')
@@ -162,6 +164,75 @@ internal static class EpicOAuthProtocol
             CanRetry = canRetry,
             Severity = severity,
         };
+    }
+
+    private static Result<EpicLoginResult> TryExtractLoginResultFromJson(string jsonPayload)
+    {
+        try
+        {
+            using var document = JsonDocument.Parse(jsonPayload);
+            if (document.RootElement.ValueKind != JsonValueKind.Object)
+            {
+                return Result.Fail<EpicLoginResult>(CreateError(
+                    "AUTH_AUTHORIZATION_CODE_JSON_INVALID",
+                    "未识别到可用的授权码，请优先粘贴 authorizationCode 或完整回调链接。",
+                    "Manual authorization code JSON payload is not an object.",
+                    canRetry: true,
+                    severity: ErrorSeverity.Warning));
+            }
+
+            var root = document.RootElement;
+            if (TryGetNonEmptyString(root, "authorizationCode", out var authorizationCode)
+                || TryGetNonEmptyString(root, "code", out authorizationCode))
+            {
+                return Result.Ok(EpicLoginResult.FromJsonAuthorizationCodeInput(authorizationCode!));
+            }
+
+            if (TryGetNonEmptyString(root, "redirectUrl", out var redirectUrl)
+                && TryExtractCodeFromUrl(redirectUrl!, out var codeFromJsonUrl))
+            {
+                return Result.Ok(EpicLoginResult.FromJsonRedirectUrlInput(codeFromJsonUrl!));
+            }
+
+            return Result.Fail<EpicLoginResult>(CreateError(
+                "AUTH_AUTHORIZATION_CODE_JSON_INVALID",
+                "未识别到可用的授权码，请优先粘贴 authorizationCode 或完整回调链接。",
+                "Manual authorization code JSON payload does not contain 'authorizationCode', 'code', or a usable 'redirectUrl'.",
+                canRetry: true,
+                severity: ErrorSeverity.Warning));
+        }
+        catch (JsonException ex)
+        {
+            return Result.Fail<EpicLoginResult>(CreateError(
+                "AUTH_AUTHORIZATION_CODE_JSON_INVALID",
+                "未识别到可用的授权码，请优先粘贴 authorizationCode 或完整回调链接。",
+                $"Manual authorization code JSON payload is invalid: {LogSanitizer.SanitizeHttpBody(ex.Message, 300)}",
+                canRetry: true,
+                severity: ErrorSeverity.Warning));
+        }
+    }
+
+    private static bool TryGetNonEmptyString(JsonElement root, string propertyName, out string? value)
+    {
+        value = null;
+        if (!root.TryGetProperty(propertyName, out var property))
+        {
+            return false;
+        }
+
+        if (property.ValueKind != JsonValueKind.String)
+        {
+            return false;
+        }
+
+        var rawValue = property.GetString();
+        if (string.IsNullOrWhiteSpace(rawValue))
+        {
+            return false;
+        }
+
+        value = rawValue.Trim();
+        return true;
     }
 
     private static bool TryExtractCodeFromUrl(string rawUrl, out string? code)

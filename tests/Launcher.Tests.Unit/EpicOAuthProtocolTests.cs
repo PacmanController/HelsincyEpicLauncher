@@ -77,25 +77,25 @@ public sealed class EpicOAuthProtocolTests
     }
 
     [Fact]
-    public void ExtractAuthorizationCode_WithJsonPayload_Should_Fail()
+    public void ExtractAuthorizationCode_WithJsonPayload_Should_Succeed()
     {
         // Act
         var result = EpicOAuthProtocol.ExtractAuthorizationCode("{\"authorizationCode\":\"code-123\"}");
 
         // Assert
-        result.IsSuccess.Should().BeFalse();
-        result.Error!.Code.Should().Be("AUTH_AUTHORIZATION_CODE_JSON_NOT_ALLOWED");
+        result.IsSuccess.Should().BeTrue();
+        result.Value.Should().Be("code-123");
     }
 
     [Fact]
-    public void ExtractAuthorizationCode_WithJsonRedirectUrl_Should_Fail()
+    public void ExtractAuthorizationCode_WithJsonRedirectUrl_Should_Succeed()
     {
         // Act
         var result = EpicOAuthProtocol.ExtractAuthorizationCode("{\"redirectUrl\":\"https://localhost/launcher/authorized?code=code-123\"}");
 
         // Assert
-        result.IsSuccess.Should().BeFalse();
-        result.Error!.Code.Should().Be("AUTH_AUTHORIZATION_CODE_JSON_NOT_ALLOWED");
+        result.IsSuccess.Should().BeTrue();
+        result.Value.Should().Be("code-123");
     }
 
     [Fact]
@@ -125,6 +125,32 @@ public sealed class EpicOAuthProtocolTests
     }
 
     [Fact]
+    public void NormalizeLoginResult_WithJsonAuthorizationCode_Should_ReturnAuthorizationCodeKind()
+    {
+        // Act
+        var result = EpicOAuthProtocol.NormalizeLoginResult("{\"authorizationCode\":\"code-123\"}");
+
+        // Assert
+        result.IsSuccess.Should().BeTrue();
+        result.Value!.Kind.Should().Be(EpicLoginResultKind.AuthorizationCode);
+        result.Value.Source.Should().Be("json_authorization_code_input");
+        result.Value.Payload.Should().Be("code-123");
+    }
+
+    [Fact]
+    public void NormalizeLoginResult_WithJsonRedirectUrl_Should_ReturnCallbackUrlKind()
+    {
+        // Act
+        var result = EpicOAuthProtocol.NormalizeLoginResult("{\"redirectUrl\":\"https://localhost/launcher/authorized?code=code-123\"}");
+
+        // Assert
+        result.IsSuccess.Should().BeTrue();
+        result.Value!.Kind.Should().Be(EpicLoginResultKind.CallbackUrl);
+        result.Value.Source.Should().Be("json_redirect_url_input");
+        result.Value.Payload.Should().Be("code-123");
+    }
+
+    [Fact]
     public void ExtractAuthorizationCode_WithJsonMissingCode_Should_Fail()
     {
         // Act
@@ -132,8 +158,8 @@ public sealed class EpicOAuthProtocolTests
 
         // Assert
         result.IsSuccess.Should().BeFalse();
-        result.Error!.Code.Should().Be("AUTH_AUTHORIZATION_CODE_JSON_NOT_ALLOWED");
-        result.Error.UserMessage.Should().Contain("不要粘贴完整响应内容");
+        result.Error!.Code.Should().Be("AUTH_AUTHORIZATION_CODE_JSON_INVALID");
+        result.Error.UserMessage.Should().Contain("未识别到可用的授权码");
     }
 
     [Fact]

@@ -484,6 +484,33 @@
 | 测试补充 | 新增 `EpicLoginWebViewBridgeTests` 覆盖 Epic 域名信任与桥接消息解析；整仓库测试总数已从 232 提升到 242，全部通过 |
 | 剩余风险 | 当前仍然缺少真实 Epic 登录页运行态证据，尚未证明 Epic 页面桥接点在 WinUI 3 WebView2 中长期稳定，因此主风险已从“本地实现边界过宽”收敛为“外部页面行为是否稳定” |
 
+### 2026-04-22 — WebView2 运行态根因与浏览器 JSON 兜底修正
+
+**状态**: 已完成代码修正，待重新做真实运行态验收 | **运行态结论**: 当前卡点不是单一的“登录页一直加载”，而是 `WebView2Loader.dll` 输出缺失与浏览器 JSON 兜底不兼容两个问题叠加
+
+| 类别 | 详细内容 |
+|------|----------|
+| 运行态证据 | 实际点击登录后，主日志先记录 `Auth login started | Mode=embedded_webview_exchange_code` 与“显示 Epic 嵌入式登录对话框”，随后 `DialogService` 在 `CoreWebView2Environment.CreateWithOptionsAsync(...)` 处抛出 `System.IO.FileNotFoundException: 找不到指定的模块`，紧接着 `ShellViewModel` 记录“嵌入式登录窗口失败”并切换到系统浏览器兜底 |
+| 第一层根因 | 默认启动目录 `src/Launcher.App/bin/Debug/net9.0-windows10.0.19041.0` 根层没有 `WebView2Loader.dll`；该文件只存在于 `runtimes/win-x64/native` 和 `win-x64` 子目录中，因此直接启动默认输出时 WebView2 无法初始化 |
+| 构建修正 | `Launcher.App.csproj` 现显式引用 `Microsoft.Web.WebView2`，并在 Build / Publish 后把 `runtimes/win-x64/native/WebView2Loader.dll` 复制到真实应用基目录 `TargetDir` / `PublishDir`，不再错误使用相对 `OutDir` |
+| 第二层根因 | 浏览器兜底链路打开的仍是 `id/login?redirectUrl=.../id/api/redirect?...`，该链路在当前 clientId 下会把用户带到 Epic 返回的 JSON 响应页；应用此前又刻意禁止整段 JSON 输入，导致用户即使完成网页登录，回到高级继续入口后也会因为输入整段 JSON 而被拒绝 |
+| 协议修正 | `EpicOAuthProtocol` 现恢复最小 JSON 兼容：若高级继续入口收到 JSON 响应，只提取 `authorizationCode`、`code` 或 `redirectUrl` 中可用的授权码，不记录原始 JSON，也不把其他字段暴露到日志 |
+| 交互修正 | `ShellViewModel` 的高级继续登录提示已同步为“优先粘贴 `authorizationCode` / 回调 URL；若浏览器只显示 JSON 响应，也可临时整段粘贴，由应用只提取必需字段” |
+| 测试补充 | `EpicOAuthProtocolTests` 已把 JSON 场景从“必然失败”改为“提取 `authorizationCode` / `redirectUrl` 成功”，同时保留缺失关键字段时的失败断言 |
+| 当前剩余风险 | 本轮尚未完成修正后的第二次真实运行态验收；仍需确认默认输出目录下 WebView2 初始化是否恢复，以及若仍进入浏览器兜底时，高级继续入口是否已能用 JSON 响应闭环登录 |
+
+### 2026-04-22 — 嵌入式登录页面裁切修正
+
+**状态**: 已完成代码修正并完成页面级运行态复验，待继续做完整登录闭环验收 | **运行态结论**: WebView2 已能显示 Epic 嵌入式登录页，但 WinUI 3 `ContentDialog` 默认宽度上限把固定 920x720 宿主压扁，导致登录页横向裁切、人机验证无法完整显示
+
+| 类别 | 详细内容 |
+|------|----------|
+| 运行态证据 | 修复 loader 缺失后，实际运行已能弹出嵌入式 Epic 登录页；但页面只显示中间一截，用户无法看到完整人机验证控件，因此虽然 WebView2 已成功初始化，默认登录主线仍被 UI 宿主尺寸问题阻断 |
+| 根因 | `DialogService` 把登录内容固定为 920x720，但没有覆盖 WinUI 3 `ContentDialog` 模板自带的宽度上限；结果 ContentDialog 仍按默认窄宽度布局，WebView2 宿主被强行裁窄，Epic 登录页横向内容被截断 |
+| UI 修正 | `DialogService` 现按当前 `XamlRoot` 可用空间动态计算嵌入式登录对话框尺寸，降低过高的固定最小高度，并显式设置登录对话框的 `ContentDialogMinWidth` / `ContentDialogMaxWidth` 资源，避免默认模板再次压扁 WebView2 宿主 |
+| 验证结果 | `dotnet build src/Launcher.App/Launcher.App.csproj --no-restore` 重新通过；用户在新一轮运行态复验中确认“页面已完整显示并可操作” |
+| 当前剩余风险 | 本轮仅确认页面显示层已恢复；后续仍需继续验证 Epic 人机验证通过后，`exchange_code` 捕获、token exchange 与登录成功闭环是否全部正常 |
+
 ---
 
 ## 修复统计

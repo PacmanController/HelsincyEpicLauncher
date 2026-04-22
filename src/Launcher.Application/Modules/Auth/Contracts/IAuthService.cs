@@ -21,7 +21,7 @@ public interface IAuthService
     /// <summary>准备嵌入式 exchange code 登录上下文</summary>
     Task<Result<AuthExchangeCodeLoginContext>> StartExchangeCodeLoginAsync(CancellationToken ct = default);
 
-    /// <summary>提交 authorization code 或完整回调链接，完成登录</summary>
+    /// <summary>提交 authorization code、完整回调链接，或浏览器返回的 JSON 响应，完成登录</summary>
     Task<Result<AuthUserInfo>> CompleteAuthorizationCodeLoginAsync(string authorizationCodeOrCallbackUrl, CancellationToken ct = default);
 
     /// <summary>提交类型化登录结果，完成登录</summary>

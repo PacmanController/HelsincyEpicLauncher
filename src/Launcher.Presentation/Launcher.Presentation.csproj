@@ -5,6 +5,7 @@
 
   <PropertyGroup>
     <UseWinUI>true</UseWinUI>
+    <PlatformTarget>x64</PlatformTarget>
     <Platforms>x64</Platforms>
     <EnableMsixTooling>false</EnableMsixTooling>
     <!-- MVVMTK0045: 抑制 partial property AOT 警告（非 AOT 场景无影响） -->

@@ -4,6 +4,7 @@
     <UseWinUI>true</UseWinUI>
     <WindowsPackageType>None</WindowsPackageType>
     <RuntimeIdentifiers>win-x64</RuntimeIdentifiers>
+    <PlatformTarget>x64</PlatformTarget>
     <Platforms>x64</Platforms>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
@@ -18,6 +19,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.3179.45" GeneratePathProperty="true" PrivateAssets="all" />
     <PackageReference Include="Microsoft.WindowsAppSDK" Version="1.8.260317003" />
     <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.26100.4654" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="8.0.1" />
@@ -42,4 +44,28 @@
   <ItemGroup>
     <Content Include="appsettings.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
+
+  <Target Name="CopyWebView2LoaderToAppBaseOutput" AfterTargets="Build">
+    <PropertyGroup>
+      <WebView2LoaderSource>$(PkgMicrosoft_Web_WebView2)\runtimes\win-x64\native\WebView2Loader.dll</WebView2LoaderSource>
+    </PropertyGroup>
+
+    <Copy
+      SourceFiles="$(WebView2LoaderSource)"
+      DestinationFiles="$(TargetDir)WebView2Loader.dll"
+      SkipUnchangedFiles="true"
+      Condition="Exists('$(WebView2LoaderSource)')" />
+  </Target>
+
+  <Target Name="CopyWebView2LoaderToPublishOutput" AfterTargets="Publish" Condition="'$(PublishDir)' != ''">
+    <PropertyGroup>
+      <WebView2LoaderSource>$(PkgMicrosoft_Web_WebView2)\runtimes\win-x64\native\WebView2Loader.dll</WebView2LoaderSource>
+    </PropertyGroup>
+
+    <Copy
+      SourceFiles="$(WebView2LoaderSource)"
+      DestinationFiles="$(PublishDir)WebView2Loader.dll"
+      SkipUnchangedFiles="true"
+      Condition="Exists('$(WebView2LoaderSource)')" />
+  </Target>
 </Project>

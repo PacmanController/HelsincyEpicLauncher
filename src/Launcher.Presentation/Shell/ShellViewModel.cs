@@ -198,7 +198,7 @@ public partial class ShellViewModel : ObservableObject, IDisposable
 
         bool confirmed = await _dialogService.ShowConfirmAsync(
             "高级登录入口",
-            "只有在浏览器没有自动回到应用，且你已经拿到 authorizationCode 或完整回调链接时，才需要手动继续。是否继续？",
+            "只有在浏览器没有自动回到应用，且你已经拿到 authorizationCode、完整回调链接，或浏览器最终只显示 Epic 返回的 JSON 响应时，才需要手动继续。是否继续？",
             "继续",
             "返回");
 
@@ -214,8 +214,8 @@ public partial class ShellViewModel : ObservableObject, IDisposable
         {
             var input = await _dialogService.ShowTextInputAsync(
                 "继续 Epic 登录",
-                "请只粘贴 authorizationCode 或完整回调链接。不要粘贴整段 JSON 响应，以免暴露不必要的敏感字段。",
-                "粘贴 authorizationCode 或回调链接",
+                "请优先只粘贴 authorizationCode 或完整回调链接。若浏览器最终只显示 Epic 返回的 JSON 响应，也可以临时整段粘贴，应用只会提取其中的 authorizationCode 或 redirectUrl。",
+                "粘贴 authorizationCode、回调链接，或必要时粘贴 JSON 响应",
                 "完成登录",
                 "取消");
 
@@ -256,7 +256,9 @@ public partial class ShellViewModel : ObservableObject, IDisposable
         }
 
         CanContinueAuthorizationCodeLogin = true;
-        await _dialogService.ShowInfoAsync(title, message);
+        await _dialogService.ShowInfoAsync(
+            title,
+            $"{message}\n\n若浏览器最终只显示 Epic 返回的 JSON 响应，请返回应用后使用“高级登录入口”。优先只粘贴 authorizationCode；若无法单独提取，也可临时整段粘贴，应用只会提取其中的 authorizationCode 或 redirectUrl。不要分享该响应中的其他敏感字段。");
     }
 
     /// <summary>

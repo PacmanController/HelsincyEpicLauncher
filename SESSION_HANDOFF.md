@@ -1,14 +1,14 @@
 # 会话交接文档
 
 ## 最后更新
-- 时间：2026-04-21
-- 完成任务：Epic 两步式登录验证 + Auth 手动 JSON 输入止血 + Auth 自动回调预研/loopback 清单整理 + Auth 宿主自动回调骨架接入 + Auth 第二实例自动回调转发正式修复并完成运行态验收 + Legendary 参考实现分析与下一阶段 Auth 设计文档定稿 + Auth Phase L1 内部 completion 抽象与结构化日志归一 + EGL refresh token 导入预研 + WebView2 exchange code 预研、默认登录实现与风险加固 + Fab 网页端接口误接入修补 + Fab owned 回退统一到流式详情/分页链路
+- 时间：2026-04-22
+- 完成任务：Epic 两步式登录验证 + Auth 手动 JSON 输入止血 + Auth 自动回调预研/loopback 清单整理 + Auth 宿主自动回调骨架接入 + Auth 第二实例自动回调转发正式修复并完成运行态验收 + Legendary 参考实现分析与下一阶段 Auth 设计文档定稿 + Auth Phase L1 内部 completion 抽象与结构化日志归一 + EGL refresh token 导入预研 + WebView2 exchange code 预研、默认登录实现与风险加固 + Fab 网页端接口误接入修补 + Fab owned 回退统一到流式详情/分页链路 + WebView2 运行态 loader 缺失修正
 
 ## 当前项目状态
 - 最后成功编译：是（dotnet build 成功）
 - 最后测试结果：全部通过（242/242；仍有 1 条既有 `CA1816` 警告未处理）
-- 当前重点：**默认 Epic 登录路径仍是“嵌入式 WebView2 + exchange_code 自动完成”，但这条主线已经补上了 4 个此前明确的实现风险：受信任 Epic 页面来源校验、非 Epic 外链拒绝、独立 WebView2 会话目录与浏览数据清理、以及取消回调的 UI 线程安全。Auth typed completion 也已补上空输入保护。当前剩余的不确定性主要不在本地代码，而在真实 Epic 登录页是否会持续暴露可用桥接点。**
-- 下一个任务：**优先做真实运行态验收，确认 WinUI 3 WebView2 是否能稳定加载 Epic 登录页、桥接 `exchange_code` 并完成自动登录；如果运行态桥接不稳定，优先考虑把 WebView2 降级为高级入口，而不是继续让它承担默认主线。若后续改动 `src/Launcher.App/*` 做运行态验收，仍需显式执行 `dotnet build src/Launcher.App/Launcher.App.csproj`，不能只依赖 `dotnet test`。**
+- 当前重点：**2026-04-22 的真实运行态验收已经连续收敛出三层问题并完成其中两层修正：第一，默认启动目录缺少根层 `WebView2Loader.dll`，导致 `DialogService` 在 `CoreWebView2Environment.CreateWithOptionsAsync(...)` 阶段抛出“找不到指定的模块”；第二，系统浏览器兜底页会返回 JSON 响应，而应用此前只接受纯 `authorizationCode` / 回调 URL；第三，在 loader 修正后，嵌入式 Epic 登录页虽然已能显示，但 WinUI 3 `ContentDialog` 默认宽度上限又把 WebView2 宿主压扁，导致页面横向裁切、人机验证无法完整显示。当前代码已补 `TargetDir` loader 复制、JSON 兼容提取，以及登录对话框按 `XamlRoot` 动态扩展尺寸并覆盖 `ContentDialogMinWidth` / `ContentDialogMaxWidth` 的 UI 修正。**
+- 下一个任务：**继续做真实运行态闭环验收。当前用户已确认嵌入式 Epic 登录页“页面已完整显示并可操作”，所以下一步不再重复排查初始化或裁切，而是直接验证人机验证通过后 WebView2 是否稳定捕获 `exchange_code`、`CompleteLoginAsync({ Kind = ExchangeCode })` 是否成功，以及登录成功后业务页是否完成刷新。凡是继续做 `src/Launcher.App/*` 运行态验收，仍需显式执行 `dotnet build src/Launcher.App/Launcher.App.csproj`，不能只依赖 `dotnet test`。**
 
 ## 审查修复进度
 - 已完成：31/71 项（43.7%），6 个 Batch，全部提交推送

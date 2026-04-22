@@ -20,7 +20,30 @@ namespace Launcher.Presentation.Shell;
 public sealed class DialogService : IDialogService
 {
     private static readonly ILogger Logger = Log.ForContext<DialogService>();
+    private const double EmbeddedLoginDialogHorizontalMargin = 32;
+    private const double EmbeddedLoginDialogVerticalMargin = 32;
+    private const double EmbeddedLoginDialogPreferredMinWidth = 840;
+    private const double EmbeddedLoginDialogPreferredMinHeight = 640;
+    private const double EmbeddedLoginDialogMaxWidth = 1160;
+    private const double EmbeddedLoginDialogMaxHeight = 860;
+    private const double EmbeddedLoginContentHorizontalPadding = 72;
+    private const double EmbeddedLoginContentVerticalPadding = 150;
     private XamlRoot? _xamlRoot;
+
+    private static double ResolveEmbeddedLoginDialogExtent(double availableSize, double preferredMinSize, double preferredMaxSize, double fallbackSize)
+    {
+        if (availableSize <= 0)
+        {
+            return fallbackSize;
+        }
+
+        if (availableSize >= preferredMinSize)
+        {
+            return Math.Min(preferredMaxSize, availableSize);
+        }
+
+        return availableSize;
+    }
 
     /// <summary>
     /// 设置 XamlRoot。由 ShellPage 在加载时调用，ContentDialog 显示需要此引用。
@@ -146,6 +169,19 @@ public sealed class DialogService : IDialogService
             });
         }
 
+        var dialogViewportWidth = ResolveEmbeddedLoginDialogExtent(
+            _xamlRoot.Size.Width - EmbeddedLoginDialogHorizontalMargin,
+            EmbeddedLoginDialogPreferredMinWidth,
+            EmbeddedLoginDialogMaxWidth,
+            920);
+        var dialogViewportHeight = ResolveEmbeddedLoginDialogExtent(
+            _xamlRoot.Size.Height - EmbeddedLoginDialogVerticalMargin,
+            EmbeddedLoginDialogPreferredMinHeight,
+            EmbeddedLoginDialogMaxHeight,
+            680);
+        var contentWidth = Math.Max(640, dialogViewportWidth - EmbeddedLoginContentHorizontalPadding);
+        var contentHeight = Math.Max(420, dialogViewportHeight - EmbeddedLoginContentVerticalPadding);
+
         var statusText = new TextBlock
         {
             Text = "正在加载安全登录窗口...",
@@ -173,13 +209,16 @@ public sealed class DialogService : IDialogService
         {
             HorizontalAlignment = HorizontalAlignment.Stretch,
             VerticalAlignment = VerticalAlignment.Stretch,
-            MinHeight = 620,
+            MinWidth = 640,
+            MinHeight = 420,
         };
 
         var content = new Grid
         {
-            Width = 920,
-            Height = 720,
+            Width = contentWidth,
+            Height = contentHeight,
+            MinWidth = 640,
+            MinHeight = 460,
             RowDefinitions =
             {
                 new RowDefinition { Height = GridLength.Auto },
@@ -222,8 +261,12 @@ public sealed class DialogService : IDialogService
             Content = content,
             CloseButtonText = "取消",
             DefaultButton = ContentDialogButton.Close,
+            FullSizeDesired = true,
             XamlRoot = _xamlRoot,
         };
+
+        dialog.Resources["ContentDialogMinWidth"] = dialogViewportWidth;
+        dialog.Resources["ContentDialogMaxWidth"] = dialogViewportWidth;
 
         string? exchangeCode = null;
         Error? dialogError = null;
