@@ -63,7 +63,7 @@
 | S1 | 详情基础字段落地 | 已完成 | `PublishedAt` / `Formats` 契约与 fallback 落地 |
 | S2 | 详情页结构增强 | 已完成 | 右侧详情栏、格式区、更多内容区落地 |
 | S3 | Fab API 主路径 enrichment | 已完成 | 非 fallback 路径也能补媒体图/格式/发布时间 |
-| S4 | 列表页到详情页的上下文透传 | 未开始 | 为 detail enrichment 提供更稳定的 listing 锚点 |
+| S4 | 列表页到详情页的上下文透传 | 进行中 | 为 detail enrichment 提供更稳定的 listing 锚点 |
 | S5 | 更多内容的数据质量提升 | 未开始 | 降低“同作者更多内容”误匹配 |
 | S6 | UI 冒烟验证与回归记录 | 已完成 | 把运行态检查流程固化 |
 | S7 | 文档闭环与提交前检查 | 已完成 | 补齐模块文档、变更说明、提交检查单 |
@@ -78,7 +78,7 @@
 | S3-B | S3 | 已完成 | 主路径补 Hero/截图媒体图 |
 | S3-C | S3 | 已完成 | 主路径补 Formats / PublishedAt |
 | S3-D | S3 | 已完成 | 为主路径 enrichment 补单测 |
-| S4-A | S4 | 未开始 | 新增详情导航 payload |
+| S4-A | S4 | 已完成 | 新增详情导航 payload |
 | S4-B | S4 | 未开始 | 列表页导航切到 payload |
 | S4-C | S4 | 未开始 | 详情页兼容 payload 与旧 assetId |
 | S4-D | S4 | 未开始 | 为导航上下文透传做编译/冒烟验证 |
@@ -281,7 +281,7 @@
 
 #### S4-A 新增详情导航 payload
 
-- 状态：`未开始`
+- 状态：`已完成`
 - 目标：定义一个最小 payload，把详情页需要的导航上下文固定下来。
 - 本轮只做：
   - 新建 payload 类型
@@ -297,6 +297,11 @@
   - 保留旧的 `assetId` 导航兼容思路
 - 验证动作：
   - 编译通过
+
+- 已完成结果：
+  - 已新增 `FabAssetDetailNavigationPayload`
+  - 载荷字段固定为 `AssetId`、`PreviewListingId`、`PreviewProductId`
+  - 现有字符串 `assetId` 导航入口尚未改动，兼容路径保留给 S4-B / S4-C
 
 #### S4-B 列表页导航改用 payload
 
