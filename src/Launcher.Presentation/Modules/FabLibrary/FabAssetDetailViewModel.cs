@@ -366,7 +366,7 @@ public partial class FabAssetDetailViewModel : ObservableObject
     {
         var seenAssetIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var seenTitles = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        var filtered = new List<FabAssetSummary>();
+        var filtered = new List<(FabAssetSummary Summary, string NormalizedTitle)>();
 
         foreach (var summary in items)
         {
@@ -392,14 +392,17 @@ public partial class FabAssetDetailViewModel : ObservableObject
                 continue;
             }
 
-            filtered.Add(summary);
-            if (filtered.Count == 8)
-            {
-                break;
-            }
+            filtered.Add((summary, normalizedTitle));
         }
 
-        return filtered;
+        return filtered
+            .OrderByDescending(item => item.Summary.Rating)
+            .ThenBy(item => item.NormalizedTitle, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(item => item.Summary.Price)
+            .ThenBy(item => item.Summary.AssetId, StringComparer.OrdinalIgnoreCase)
+            .Take(8)
+            .Select(item => item.Summary)
+            .ToList();
     }
 
     private static string NormalizeRelatedItemTitle(string title)
