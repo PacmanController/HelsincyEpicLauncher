@@ -63,7 +63,7 @@
 | S1 | 详情基础字段落地 | 已完成 | `PublishedAt` / `Formats` 契约与 fallback 落地 |
 | S2 | 详情页结构增强 | 已完成 | 右侧详情栏、格式区、更多内容区落地 |
 | S3 | Fab API 主路径 enrichment | 已完成 | 非 fallback 路径也能补媒体图/格式/发布时间 |
-| S4 | 列表页到详情页的上下文透传 | 进行中 | 为 detail enrichment 提供更稳定的 listing 锚点 |
+| S4 | 列表页到详情页的上下文透传 | 已完成 | 为 detail enrichment 提供更稳定的 listing 锚点 |
 | S5 | 更多内容的数据质量提升 | 未开始 | 降低“同作者更多内容”误匹配 |
 | S6 | UI 冒烟验证与回归记录 | 已完成 | 把运行态检查流程固化 |
 | S7 | 文档闭环与提交前检查 | 已完成 | 补齐模块文档、变更说明、提交检查单 |
@@ -81,7 +81,7 @@
 | S4-A | S4 | 已完成 | 新增详情导航 payload |
 | S4-B | S4 | 已完成 | 列表页导航切到 payload |
 | S4-C | S4 | 已完成 | 详情页兼容 payload 与旧 assetId |
-| S4-D | S4 | 未开始 | 为导航上下文透传做编译/冒烟验证 |
+| S4-D | S4 | 已完成 | 为导航上下文透传做编译/冒烟验证 |
 | S5-A | S5 | 未开始 | 更多内容去重与排除自身 |
 | S5-B | S5 | 未开始 | 更多内容排序稳定化 |
 | S5-C | S5 | 未开始 | 更多内容空结果与退化策略整理 |
@@ -260,7 +260,7 @@
 
 ### S4 列表页到详情页的上下文透传
 
-- 状态：`未开始`
+- 状态：`已完成`
 - 目标：当前详情页导航主要只传 `assetId`。若要提高 detail enrichment 成功率，需要把列表页已有的 preview 锚点尽量带到详情页。
 - 只允许做这些事：
   - 为导航参数增加一个稳定 DTO 或 route payload
@@ -350,7 +350,7 @@
 
 #### S4-D 导航透传验证收口
 
-- 状态：`未开始`
+- 状态：`已完成`
 - 目标：把导航透传这个变更变成可重复验证的结论。
 - 本轮只做：
   - 记录列表页进入详情的验证步骤
@@ -360,6 +360,38 @@
   - 详情页不因 payload 改造崩溃
 - 验证动作：
   - 实机运行 Launcher.App
+
+- 已完成结果：
+  - 列表页点击详情的 payload 入口已经有可重复的手工验证步骤
+  - 旧字符串 `assetId` 入口已整理为开发态兼容检查步骤
+  - 当前仓库内已不存在用户态字符串详情导航调用方，兼容验证需通过开发态触发
+
+  - 当前会话验证记录：
+    - 已执行 `dotnet build src/Launcher.App/Launcher.App.csproj`，宿主层编译通过
+    - 已直接启动构建产物 `Launcher.App.exe`，进程创建成功且未立即退出
+    - 完整页面级导航观察仍应按下方手工步骤在可交互桌面环境执行
+
+- 推荐验证步骤：
+
+1. 先执行一次 `dotnet build src/Launcher.App/Launcher.App.csproj`，确认宿主层编译通过。
+2. 启动 `Launcher.App`，完成登录并进入 Fab 列表页。
+3. 选择一个列表卡片已有 preview 锚点的资产，点击进入详情页。
+4. 检查详情页标题、Hero、右侧详情栏能正常出现，且页面不会因 payload 改造崩溃。
+5. 若该资产主详情截图为空，额外检查 Hero 是否仍能显示预览图，而不是空白占位。
+6. 返回列表页，重复进入第二个资产详情，确认导航不会卡死、黑屏或停留在旧详情内容。
+
+- 旧 `assetId` 兼容检查步骤：
+
+1. 在可调试的本地会话中启动 `Launcher.App`，等待主窗口进入 Shell。
+2. 中断到调试器后，打开 Immediate Window。
+3. 执行以下表达式，用旧字符串参数直接导航到详情页：
+
+```csharp
+((Launcher.Presentation.Shell.Navigation.INavigationService)Launcher.App.App.Services.GetService(typeof(Launcher.Presentation.Shell.Navigation.INavigationService))!).NavigateAsync(Launcher.Presentation.Shell.Navigation.NavigationRoute.FabAssetDetail, "<asset-id>").GetAwaiter().GetResult();
+```
+
+4. 继续运行应用，确认详情页仍能打开，且不会因为 `e.Parameter` 为字符串而抛出异常。
+5. 若字符串入口打开的是无主图资产，确认页面最多退化为无 Hero，不应出现崩溃或空引用异常。
 
 ### S5 更多内容的数据质量提升
 
